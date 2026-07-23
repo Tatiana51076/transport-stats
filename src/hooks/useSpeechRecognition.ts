@@ -49,6 +49,22 @@ export function useSpeechRecognition(onResult?: (text: string) => void): SpeechR
       return;
     }
 
+    setState((s) => ({ ...s, isProcessing: true, error: null }));
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        stream.getTracks().forEach((t) => t.stop());
+        startRecognition(SpeechRecognitionAPI);
+      })
+      .catch((err) => {
+        const msg = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? 'Доступ к микрофону запрещён. Нажми 🔒 в адресной строке → Микрофон → Разрешить'
+          : 'Микрофон не найден. Подключите микрофон';
+        setState((s) => ({ ...s, isListening: false, isProcessing: false, error: msg }));
+      });
+  }, [cleanup]);
+
+  const startRecognition = useCallback((SpeechRecognitionAPI: any) => {
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = 'ru-RU';
     recognition.continuous = false;
