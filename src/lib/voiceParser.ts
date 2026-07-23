@@ -162,9 +162,13 @@ export function parseVoiceInput(text: string, lookups: VoiceLookups): ParsedVoic
   if (costMatch) {
     result.cost = parseFloat(costMatch[1].replace(',', '.'));
   } else {
-    const costNum = extractNumber(clean);
-    if (costNum !== null && result.pallets !== null && costNum !== result.pallets) {
-      result.cost = costNum;
+    const allNumbers = clean.match(/\d+/g);
+    if (allNumbers && allNumbers.length > 0) {
+      const palletValue = result.pallets;
+      const numbers = allNumbers.map(Number).filter((n) => n > 0 && n !== palletValue);
+      if (numbers.length > 0) {
+        result.cost = numbers[numbers.length - 1];
+      }
     }
   }
 

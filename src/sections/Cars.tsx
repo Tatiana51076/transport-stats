@@ -323,14 +323,27 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
   }), [refs]);
 
   const handleVoiceResult = useCallback((text: string) => {
+    console.log('🎤 Распознано:', text);
     const parsed = parseVoiceInput(text, voiceLookups);
+    console.log('📋 Распарсено:', parsed);
     if (parsed.date) setDate(parsed.date);
     if (parsed.trip_name) setTripId(parsed.trip_name);
     if (parsed.driver_name) setDriverId(parsed.driver_name);
     if (parsed.contractor_name) setContractorId(parsed.contractor_name);
     if (parsed.pallets !== undefined) setPallets(String(parsed.pallets));
     if (parsed.cost !== undefined) setCost(String(parsed.cost));
-    notify('Голос распознан. Проверьте поля и нажмите «Добавить рейс»', 'info');
+    const filled = [];
+    if (parsed.date) filled.push('дата');
+    if (parsed.trip_name) filled.push('рейс');
+    if (parsed.driver_name) filled.push('водитель');
+    if (parsed.contractor_name) filled.push('контрагент');
+    if (parsed.pallets !== undefined) filled.push('паллеты');
+    if (parsed.cost !== undefined) filled.push('стоимость');
+    if (filled.length > 0) {
+      notify(`Заполнено: ${filled.join(', ')}. Проверьте и нажмите «Добавить рейс»`, 'info');
+    } else {
+      notify('Речь не распознана. Попробуйте: «25 сентября, 10 паллет, 3000»', 'error');
+    }
   }, [voiceLookups, notify]);
 
   const submit = async (e: React.FormEvent) => {
