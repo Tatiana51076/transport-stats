@@ -150,12 +150,13 @@ export function parseVoiceInput(text: string, lookups: VoiceLookups): ParsedVoic
   const date = matchDate(clean);
   if (date) result.date = date;
 
-  const palletMatch = clean.match(/(\d+)\s*паллет|\bпаллет\s*(\d+)/i);
+  const palletMatch = clean.match(/(\d+)\s*(?:паллет|палет|поле|полет)|\b(?:паллет|палет|поле|полет)\s*(\d+)/i);
   if (palletMatch) {
     result.pallets = parseInt(palletMatch[1] || palletMatch[2], 10);
   } else {
+    const anyPallet = /паллет|палет|поле|полет/i.test(lower);
     const palletWord = extractNumber(clean);
-    if (palletWord && (/\bпаллет/.test(lower))) result.pallets = Math.round(palletWord);
+    if (palletWord && anyPallet) result.pallets = Math.round(palletWord);
   }
 
   const costMatch = clean.match(/(\d+[.,]?\d*)\s*(?:рубл|₽|р\b)/i);

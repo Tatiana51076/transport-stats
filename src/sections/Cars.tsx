@@ -325,7 +325,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
   const handleVoiceResult = useCallback((text: string) => {
     console.log('🎤 Распознано:', text);
     const parsed = parseVoiceInput(text, voiceLookups);
-    console.log('📋 Распарсено:', parsed);
+    console.log('📋 Распарсено:', JSON.stringify(parsed, null, 2));
     if (parsed.date) setDate(parsed.date);
     if (parsed.trip_name) setTripId(parsed.trip_name);
     if (parsed.driver_name) setDriverId(parsed.driver_name);
