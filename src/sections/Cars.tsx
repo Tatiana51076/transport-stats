@@ -325,24 +325,26 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
   const handleVoiceResult = useCallback((text: string) => {
     console.log('🎤 Распознано:', text);
     const parsed = parseVoiceInput(text, voiceLookups);
-    console.log('📋 Распарсено:', JSON.stringify(parsed, null, 2));
-    if (parsed.date) setDate(parsed.date);
-    if (parsed.trip_name) setTripId(parsed.trip_name);
-    if (parsed.driver_name) setDriverId(parsed.driver_name);
-    if (parsed.contractor_name) setContractorId(parsed.contractor_name);
-    if (parsed.pallets !== undefined) setPallets(String(parsed.pallets));
-    if (parsed.cost !== undefined) setCost(String(parsed.cost));
-    const filled = [];
-    if (parsed.date) filled.push('дата');
-    if (parsed.trip_name) filled.push('рейс');
-    if (parsed.driver_name) filled.push('водитель');
-    if (parsed.contractor_name) filled.push('контрагент');
-    if (parsed.pallets !== undefined) filled.push('паллеты');
-    if (parsed.cost !== undefined) filled.push('стоимость');
-    if (filled.length > 0) {
-      notify(`Заполнено: ${filled.join(', ')}. Проверьте и нажмите «Добавить рейс»`, 'info');
+    const report = [];
+    if (parsed.date) { setDate(parsed.date); report.push(`📅 ${parsed.date}`); }
+    if (parsed.pallets !== undefined) { setPallets(String(parsed.pallets)); report.push(`📦 ${parsed.pallets} паллет`); }
+    if (parsed.cost !== undefined) { setCost(String(parsed.cost)); report.push(`💰 ${parsed.cost} ₽`); }
+    if (parsed.trip_name) { setTripId(parsed.trip_name); report.push(`🚛 рейс`); }
+    if (parsed.driver_name) { setDriverId(parsed.driver_name); report.push(`👤 водитель`); }
+    if (parsed.contractor_name) { setContractorId(parsed.contractor_name); report.push(`🏢 контрагент`); }
+    if (report.length > 0) {
+      notify(`✅ Распознано: ${report.join(' | ')}`, 'info');
     } else {
-      notify('Речь не распознана. Попробуйте: «25 сентября, 10 паллет, 3000»', 'error');
+      const nums = text.match(/\d+/g);
+      if (nums && nums.length >= 2) {
+        const last = Number(nums[nums.length - 1]);
+        const prev = Number(nums[nums.length - 2]);
+        if (prev > 0 && prev < 100) { setPallets(String(prev)); setCost(String(last));
+          notify(`✅ Распознано: ${prev} паллет, ${last} ₽`, 'info');
+        } else { notify('❌ Не удалось распознать. Скажите: «10 паллет 3000»', 'error'); }
+      } else {
+        notify('❌ Не удалось распознать. Скажите: «10 паллет 3000»', 'error');
+      }
     }
   }, [voiceLookups, notify]);
 
