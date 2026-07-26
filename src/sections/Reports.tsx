@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Printer, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar } from '@/lib/types';
+import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar, Invoice } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
 import { formatRub, formatDate, exportToExcel } from '@/lib/format';
 import { LoadingState, EmptyState } from '@/components/States';
@@ -45,6 +45,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [contractorFilter, setContractorFilter] = useState('');
   const [data, setData] = useState<RecordWithRefs[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -66,10 +67,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const { data: rows } = await q;
     setData((rows as RecordWithRefs[]) || []);
 
-    let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', from).lte('date', to);
+      let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', from).lte('date', to).order('date', { ascending: true });
     if (carFilter) eq = eq.eq('car_id', carFilter);
     const { data: expRows } = await eq;
     setExpenses((expRows as ExpenseWithCar[]) || []);
+
+    let iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
+    const { data: invRows } = await iq;
+    setInvoices((invRows as Invoice[]) || []);
 
     setLoading(false);
     setLoaded(true);
@@ -80,7 +85,12 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const trips = data.length;
     const pallets = data.reduce((s, r) => s + r.pallets, 0);
     const expTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
+    const invTotal = invoices.reduce((s, i) => s + Number(i.amount), 0);
+    const invPaid = invoices.filter((i) => i.paid).reduce((s, i) => s + Number(i.amount), 0);
+    const invUnpaid = invTotal - invPaid;
     const profit = revenue - expTotal;
+    const realProfit = invPaid - expTotal;
+    const forecastProfit = invTotal - expTotal;
 
     const group = (getKey: (r: RecordWithRefs) => { id: string; label: string } | null) => {
       const map = new Map<string, { label: string; count: number; sum: number }>();
@@ -102,13 +112,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     })).filter((c) => c.amount > 0);
 
     return {
-      revenue, trips, pallets, expTotal, profit,
+      revenue, trips, pallets, expTotal, profit, invTotal, invPaid, invUnpaid, realProfit, forecastProfit,
       byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),
       byCar: group((r) => (r.cars ? { id: r.cars.id, label: [r.cars.plate_number, r.cars.brand, r.cars.model].filter(Boolean).join(' ') } : null)),
       byContractor: group((r) => (r.contractors ? { id: r.contractors.id, label: r.contractors.name } : null)),
       expByCategory,
     };
-  }, [data, expenses]);
+  }, [data, expenses, invoices]);
 
   const handleExport = () => {
     const periodStr = `${formatDate(from)}—${formatDate(to)}`;
@@ -134,22 +144,48 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       ],
     });
 
+    if (totals.invTotal > 0) {
+      tables.push({
+        title: `Счета (${periodStr})`,
+        headers: ['Дата', 'Контрагент', 'Сумма', 'Статус'],
+        rows: invoices.map((i) => [formatDate(i.date), i.contractor_name, formatRub(i.amount), i.paid ? 'Оплачен' : 'Не оплачен']),
+      });
+    }
+
     if (totals.expTotal > 0) {
+      tables.push({
+        title: `Детально по расходам (${periodStr})`,
+        headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
+        rows: expenses.map((e) => [
+          formatDate(e.date),
+          EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
+          e.cars?.plate_number || '—',
+          e.employee_name || '—',
+          e.description || '—',
+          formatRub(e.amount),
+        ]),
+      });
       tables.push({
         title: `Расходы по категориям (${periodStr})`,
         headers: ['Категория', 'Сумма'],
         rows: totals.expByCategory.map((c) => [c.label, formatRub(c.amount)]),
       });
-      tables.push({
-        title: 'Итоговая прибыль',
-        headers: ['Показатель', 'Значение'],
-        rows: [
-          ['Доходы', formatRub(totals.revenue)],
-          ['Расходы', formatRub(totals.expTotal)],
-          ['Прибыль', formatRub(totals.profit)],
-        ],
-      });
     }
+
+    tables.push({
+      title: 'Финансовый итог',
+      headers: ['Показатель', 'Значение'],
+      rows: [
+        ['Доходы (выручка)', formatRub(totals.revenue)],
+        ['Выставлено счетов', formatRub(totals.invTotal)],
+        ['Оплачено счетов', formatRub(totals.invPaid)],
+        ['Не оплачено счетов', formatRub(totals.invUnpaid)],
+        ['Расходы', formatRub(totals.expTotal)],
+        ['Прибыль (доходы - расходы)', formatRub(totals.profit)],
+        ['Реальная прибыль (оплачено - расходы)', formatRub(totals.realProfit)],
+        ['Прогноз прибыли (все счета - расходы)', formatRub(totals.forecastProfit)],
+      ],
+    });
 
     exportToExcel(`Отчёт_${periodStr}`, tables);
     notify('Отчёт скачан', 'success');
@@ -199,7 +235,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
             {loading ? 'Построение…' : 'Построить отчёт'}
           </button>
           <span className="text-xs text-primary-400">Период: {formatDate(from)} — {formatDate(to)}</span>
-          {loaded && data.length > 0 && (
+          {loaded && (data.length > 0 || invoices.length > 0) && (
             <>
               <button onClick={handleExport} className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
                 <FileDown className="h-4 w-4" /> Excel
@@ -216,7 +252,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         <LoadingState label="Формирование отчёта…" />
       ) : !loaded ? (
         <EmptyState title="Отчёт ещё не сформирован" description="Выберите период и нажмите «Построить отчёт»" />
-      ) : data.length === 0 && expenses.length === 0 ? (
+      ) : data.length === 0 && expenses.length === 0 && invoices.length === 0 ? (
         <EmptyState title="Нет данных за выбранный период" />
       ) : (
         <>
@@ -253,6 +289,40 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
             </div>
           )}
 
+          {invoices.length > 0 && (
+            <div className="card-base overflow-hidden">
+              <div className="px-5 py-4">
+                <h3 className="text-lg font-bold text-primary-900">Счета</h3>
+              </div>
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
+                      <th className="px-4 py-3 font-semibold">Дата</th>
+                      <th className="px-4 py-3 font-semibold">Контрагент</th>
+                      <th className="px-4 py-3 text-right font-semibold">Сумма</th>
+                      <th className="px-4 py-3 text-center font-semibold">Статус</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-primary-50">
+                    {invoices.map((inv) => (
+                      <tr key={inv.id} className="transition hover:bg-primary-50/40">
+                        <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(inv.date)}</td>
+                        <td className="px-4 py-3 text-primary-700">{inv.contractor_name}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(inv.amount)}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${inv.paid ? 'bg-success-50 text-success-700' : 'bg-error-50 text-error-700'}`}>
+                            {inv.paid ? 'Оплачен' : 'Не оплачен'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="card-base p-6">
             <h3 className="mb-4 text-lg font-bold text-primary-900">Финансовая сводка</h3>
 
@@ -261,6 +331,21 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
               <StatCard label="Расходы" value={formatRub(totals.expTotal)} />
               <StatCard label="Прибыль" value={formatRub(totals.profit)} accent={totals.profit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
             </div>
+
+            {totals.invTotal > 0 && (
+              <div className="mb-6">
+                <h4 className="mb-3 text-sm font-bold text-primary-700">Счета</h4>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <StatCard label="Выставлено счетов" value={formatRub(totals.invTotal)} />
+                  <StatCard label="Оплачено" value={formatRub(totals.invPaid)} accent="text-success-600 bg-success-50" />
+                  <StatCard label="Не оплачено" value={formatRub(totals.invUnpaid)} accent="text-error-600 bg-error-50" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 mt-4">
+                  <StatCard label="Реальная прибыль (оплачено − расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                  <StatCard label="Прогноз прибыли (все счета − расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                </div>
+              </div>
+            )}
 
             {totals.expByCategory.length > 0 && (
               <div className="mb-6">
@@ -272,6 +357,38 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                       <p className="mt-1 text-base font-bold text-primary-900">{formatRub(c.amount)}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {expenses.length > 0 && (
+              <div className="mb-6">
+                <h4 className="mb-3 text-sm font-bold text-primary-700">Детально по расходам</h4>
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
+                        <th className="px-4 py-3 font-semibold">Дата</th>
+                        <th className="px-4 py-3 font-semibold">Категория</th>
+                        <th className="px-4 py-3 font-semibold">Автомобиль</th>
+                        <th className="px-4 py-3 font-semibold">Сотрудник</th>
+                        <th className="px-4 py-3 font-semibold">Описание</th>
+                        <th className="px-4 py-3 text-right font-semibold">Сумма</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-primary-50">
+                      {expenses.map((e) => (
+                        <tr key={e.id} className="transition hover:bg-primary-50/40">
+                          <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(e.date)}</td>
+                          <td className="px-4 py-3 text-primary-600">{EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category}</td>
+                          <td className="px-4 py-3 text-primary-600">{e.cars?.plate_number || '—'}</td>
+                          <td className="px-4 py-3 text-primary-600">{e.employee_name || '—'}</td>
+                          <td className="px-4 py-3 text-primary-600 max-w-[200px] truncate" title={e.description || ''}>{e.description || '—'}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(e.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

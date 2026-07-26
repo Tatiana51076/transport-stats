@@ -68,4 +68,20 @@ export const EXPENSE_CATEGORIES: { key: Expense['category']; label: string; icon
   { key: 'other', label: 'Прочие', icon: 'MoreHorizontal' },
 ];
 
+export interface Invoice {
+  id: string;
+  contractor_name: string;
+  car_id: string | null;
+  driver_id: string | null;
+  amount: number;
+  paid: boolean;
+  date: string;
+  created_at: string;
+}
+
+export interface InvoiceWithRefs extends Invoice {
+  cars?: { id: string; plate_number: string } | null;
+  drivers?: { id: string; full_name: string } | null;
+}
+
 export const MAX_RECORDS_PER_CAR = 5;

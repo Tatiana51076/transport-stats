@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, Menu, X } from 'lucide-react';
 import { Toast, type ToastMessage } from '@/components/Toast';
 
-export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'reports';
+export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'invoices' | 'reports';
 
 interface NavItem {
   key: Section;
@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'drivers', label: 'Водители', icon: Users },
   { key: 'contractors', label: 'Контрагенты', icon: Building2 },
   { key: 'expenses', label: 'Расходы', icon: Wallet },
+  { key: 'invoices', label: 'Счета', icon: FileText },
   { key: 'reports', label: 'Отчёты', icon: BarChart3 },
 ];
 
