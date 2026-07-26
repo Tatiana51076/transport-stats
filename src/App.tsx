@@ -6,6 +6,7 @@ import type { Car } from '@/lib/types';
 import { CarList, CarDetail } from '@/sections/Cars';
 import { SimpleList } from '@/sections/SimpleList';
 import { Reports } from '@/sections/Reports';
+import { ExpensesSection } from '@/sections/Expenses';
 import { AuthPage } from '@/sections/Auth';
 import { parseVoiceInput } from '@/lib/voiceParser';
 import { VoiceInputButton } from '@/components/VoiceInput';
@@ -128,6 +129,9 @@ function App() {
           onChanged={refs.reload}
         />
       );
+    }
+    if (section === 'expenses') {
+      return <ExpensesSection cars={refs.cars} notify={notify} />;
     }
     if (section === 'reports') {
       return <Reports cars={refs.cars} drivers={refs.drivers} contractors={refs.contractors} notify={notify} />;

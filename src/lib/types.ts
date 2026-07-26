@@ -45,4 +45,27 @@ export interface RecordWithRefs extends RecordRow {
   cars?: { id: string; plate_number: string; brand: string | null; model: string | null } | null;
 }
 
+export interface Expense {
+  id: string;
+  category: 'leasing' | 'fuel' | 'salary' | 'taxes' | 'other';
+  car_id: string | null;
+  amount: number;
+  date: string;
+  description: string | null;
+  employee_name: string | null;
+  created_at: string;
+}
+
+export interface ExpenseWithCar extends Expense {
+  cars?: { id: string; plate_number: string; brand: string | null; model: string | null } | null;
+}
+
+export const EXPENSE_CATEGORIES: { key: Expense['category']; label: string; icon: string }[] = [
+  { key: 'leasing', label: 'Лизинг', icon: 'FileText' },
+  { key: 'fuel', label: 'Топливо', icon: 'Fuel' },
+  { key: 'salary', label: 'Зарплата', icon: 'Users' },
+  { key: 'taxes', label: 'Налоги', icon: 'Receipt' },
+  { key: 'other', label: 'Прочие', icon: 'MoreHorizontal' },
+];
+
 export const MAX_RECORDS_PER_CAR = 5;

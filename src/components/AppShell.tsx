@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Truck, ClipboardList, Users, Building2, BarChart3, Menu, X } from 'lucide-react';
+import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, Menu, X } from 'lucide-react';
 import { Toast, type ToastMessage } from '@/components/Toast';
 
-export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'reports';
+export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'reports';
 
 interface NavItem {
   key: Section;
@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'trips', label: 'Рейсы', icon: ClipboardList },
   { key: 'drivers', label: 'Водители', icon: Users },
   { key: 'contractors', label: 'Контрагенты', icon: Building2 },
+  { key: 'expenses', label: 'Расходы', icon: Wallet },
   { key: 'reports', label: 'Отчёты', icon: BarChart3 },
 ];
 
