@@ -83,7 +83,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const totals = useMemo(() => {
     const revenue = data.reduce((s, r) => s + Number(r.cost), 0);
     const trips = data.length;
-    const pallets = data.reduce((s, r) => s + r.pallets, 0);
+    const pallets = data.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0);
     const expTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const invTotal = invoices.reduce((s, i) => s + Number(i.amount), 0);
     const invPaid = invoices.filter((i) => i.paid).reduce((s, i) => s + Number(i.amount), 0);
@@ -130,7 +130,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       rows: data.map((r) => [
         r.contractors?.name || '—', formatDate(r.date), r.trips?.name || '—',
         r.drivers?.full_name || '—', r.cars?.plate_number || '—',
-        String(r.pallets), formatRub(r.cost),
+        `{r.pallets}${r.pallets2 > 0 ? `+${r.pallets2}` : ''}`, formatRub(r.cost),
       ]),
     });
 
@@ -279,7 +279,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                         <td className="px-4 py-3 text-primary-600">{r.trips?.name || '—'}</td>
                         <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
                         <td className="px-4 py-3 text-primary-600">{r.cars?.plate_number || '—'}</td>
-                        <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}` : ''}</td>
                         <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
                       </tr>
                     ))}

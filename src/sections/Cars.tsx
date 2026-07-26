@@ -271,7 +271,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
                     <td className="px-4 py-3 text-primary-600">{r.trips?.name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.contractors?.name || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}=${r.pallets + r.pallets2}` : ''}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
                     <td className="px-4 py-3 text-right">
                       <DeleteButton onClick={() => setConfirmRec(r)} />
@@ -312,6 +312,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
   const [contractorId, setContractorId] = useState('');
   const [cost, setCost] = useState('');
   const [pallets, setPallets] = useState('');
+  const [pallets2, setPallets2] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -357,6 +358,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
     if (!contractorId) { setErr('Выберите контрагента'); return; }
     const costNum = parseFloat(cost);
     const palletsNum = parseInt(pallets, 10);
+    const pallets2Num = parseInt(pallets2, 10) || 0;
     if (!costNum || costNum <= 0) { setErr('Стоимость должна быть больше 0'); return; }
     if (!palletsNum || palletsNum <= 0) { setErr('Количество паллет должно быть больше 0'); return; }
 
@@ -369,6 +371,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
       date,
       cost: costNum,
       pallets: palletsNum,
+      pallets2: pallets2Num,
     });
     setSaving(false);
     if (error) {
@@ -401,9 +404,11 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
           <Select value={contractorId} onChange={setContractorId} options={refs.contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Выберите контрагента" />
         </Field>
         <Field label="Паллеты *">
-          <div className="relative">
-            <Hash className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" />
-            <input type="number" min="1" step="1" className="input-base pl-9" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" />
+          <div className="flex items-center gap-2">
+            <input type="number" min="1" step="1" className="input-base flex-1" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" />
+            <span className="text-primary-400 font-semibold">+</span>
+            <input type="number" min="0" step="1" className="input-base flex-1" value={pallets2} onChange={(e) => setPallets2(e.target.value)} placeholder="5" />
+            {(pallets || pallets2) && <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {((parseInt(pallets)||0)+(parseInt(pallets2)||0))}</span>}
           </div>
         </Field>
         <Field label="Стоимость, ₽ *">

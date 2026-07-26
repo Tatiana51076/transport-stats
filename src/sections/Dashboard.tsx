@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Truck, Package, Receipt, Calendar, DollarSign, Target } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { RecordWithRefs, Car, Driver, Contractor } from '@/lib/types';
-import { formatRub, formatDate } from '@/lib/format';
+import { formatRub, formatDate, toDateInput } from '@/lib/format';
 import { LoadingState } from '@/components/States';
 import { Select } from '@/sections/Cars';
 
@@ -69,7 +69,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
   const stats = useMemo(() => {
     const totalCost = data.reduce((s, r) => s + Number(r.cost), 0);
     const totalTrips = data.length;
-    const totalPallets = data.reduce((s, r) => s + r.pallets, 0);
+    const totalPallets = data.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0);
     const avgCheck = totalTrips > 0 ? totalCost / totalTrips : 0;
     const costPerPallet = totalPallets > 0 ? totalCost / totalPallets : 0;
 
@@ -90,7 +90,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
         const e = map.get(k.id) || { label: k.label, count: 0, sum: 0, pallets: 0 };
         e.count += 1;
         e.sum += Number(r.cost);
-        e.pallets += r.pallets;
+        e.pallets += r.pallets + (r.pallets2 || 0);
         map.set(k.id, e);
       }
       return Array.from(map.values()).sort((a, b) => b.sum - a.sum);
@@ -285,7 +285,7 @@ function TopCard({ title, rows }: { title: string; rows: { label: string; count:
               <div className="h-1.5 overflow-hidden rounded-full bg-primary-50">
                 <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500" style={{ width: `${(r.sum / maxSum) * 100}%` }} />
               </div>
-              <p className="mt-0.5 text-[10px] text-primary-400">{r.count} рейсов{r.pallets ? ` · ${r.pallets} паллет` : ''}</p>
+              <p className="mt-0.5 text-[10px] text-primary-400">{r.count} рейсов{r.pallets ? ` · ${formatPallets(r.pallets)} паллет` : ''}</p>
             </div>
           ))}
         </div>
