@@ -74,6 +74,30 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
         </div>
       </div>
 
+      {invoices.length > 0 && (
+        <div className="card-base p-5">
+          <h3 className="mb-3 text-sm font-bold text-primary-900">Разбивка по контрагентам</h3>
+          <div className="divide-y divide-primary-50">
+            {Array.from(new Set(invoices.map((i) => i.contractor_name))).map((name) => {
+              const invs = invoices.filter((i) => i.contractor_name === name);
+              const total = invs.reduce((s, i) => s + Number(i.amount), 0);
+              const paid = invs.filter((i) => i.paid).reduce((s, i) => s + Number(i.amount), 0);
+              const unpaid = total - paid;
+              return (
+                <div key={name} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="text-sm font-medium text-primary-700">{name}</span>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-primary-500">Всего: {formatRub(total)}</span>
+                    <span className="text-success-600">Оплачено: {formatRub(paid)}</span>
+                    <span className="text-error-600">Долг: {formatRub(unpaid)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {showAdd && <AddInvoiceForm contractors={contractors} cars={cars} drivers={drivers} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} notify={notify} />}
 
       {loading ? (
