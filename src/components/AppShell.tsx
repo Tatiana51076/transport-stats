@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, Menu, X } from 'lucide-react';
+import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, FileText, Menu, X } from 'lucide-react';
 import { Toast, type ToastMessage } from '@/components/Toast';
 
 export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'invoices' | 'reports';
