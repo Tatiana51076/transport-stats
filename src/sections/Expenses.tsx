@@ -128,7 +128,8 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(e.amount)}</td>
                     <td className="px-4 py-3 text-right"><DeleteButton onClick={() => setConfirmDelete(e)} /></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
