@@ -19,18 +19,18 @@ function buildQuery(table: string) {
     },
     limit(n: number) { limitNum = n; return q; },
     single() { isSingle = true; return q; },
-    then(resolve: any) {
+    then(resolve: any, reject?: any) {
       let url = `${API}/${table}?select=${encodeURIComponent(selectQuery)}`;
       if (params.length) url += '&' + params.join('&');
       if (limitNum) url += `&limit=${limitNum}`;
-      return fetch(url, { headers: { 'Accept': 'application/json' } })
+      fetch(url, { headers: { 'Accept': 'application/json' } })
         .then(async (res) => {
-          if (!res.ok) { const t = await res.text(); return { data: null, error: new Error(t) }; }
+          if (!res.ok) { const t = await res.text(); resolve({ data: null, error: new Error(t) }); return; }
           let data = await res.json();
           if (isSingle) data = data?.[0] || null;
-          return { data, error: null };
+          resolve({ data, error: null });
         })
-        .catch((err) => ({ data: null, error: err }));
+        .catch((err) => resolve({ data: null, error: err }));
     },
   };
 
