@@ -250,7 +250,7 @@ function DailyChart({ daily }: { daily: { date: string; sum: number }[] }) {
                     style={{ height: `${Math.max(heightPct, 4)}%` }}
                     title={`${formatDate(d.date)}: ${formatRub(d.sum)}`}
                   />
-                  <div className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100">
+                  <div className="absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary-800 px-1.5 py-0.5 text-[9px] font-medium text-white leading-tight">
                     {formatRub(d.sum)}
                   </div>
                 </div>
