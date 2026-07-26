@@ -239,22 +239,22 @@ function DailyChart({ daily }: { daily: { date: string; sum: number }[] }) {
       {chartData.length === 0 ? (
         <p className="py-8 text-center text-sm text-primary-400">Нет данных для графика</p>
       ) : (
-        <div className="flex items-end gap-1.5 overflow-x-auto scrollbar-thin" style={{ minHeight: '180px' }}>
+        <div className="flex items-end gap-2 overflow-x-auto scrollbar-thin pb-2" style={{ minHeight: '200px' }}>
           {chartData.map((d) => {
             const heightPct = (d.sum / maxSum) * 100;
             return (
-              <div key={d.date} className="group flex min-w-[36px] flex-1 flex-col items-center gap-2" style={{ flexBasis: '40px' }}>
-                <div className="relative flex w-full flex-1 items-end justify-center">
+              <div key={d.date} className="flex shrink-0 flex-col items-center gap-1 justify-end" style={{ minWidth: '56px', width: '56px', height: '160px' }}>
+                <div className="text-[9px] font-semibold text-primary-700 leading-tight text-center max-w-[56px] truncate">
+                  {formatRub(d.sum)}
+                </div>
+                <div className="relative w-full flex items-end justify-center flex-1" style={{ minHeight: '4px' }}>
                   <div
-                    className="w-full max-w-[28px] rounded-t-lg bg-gradient-to-t from-primary-500 to-primary-400 transition-all duration-300 hover:from-accent-600 hover:to-accent-500"
+                    className="w-[28px] rounded-t-md bg-gradient-to-t from-primary-500 to-primary-400 transition-all duration-300 hover:from-accent-600 hover:to-accent-500"
                     style={{ height: `${Math.max(heightPct, 4)}%` }}
                     title={`${formatDate(d.date)}: ${formatRub(d.sum)}`}
                   />
-                  <div className="absolute -top-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary-800 px-1.5 py-0.5 text-[9px] font-medium text-white leading-tight">
-                    {formatRub(d.sum)}
-                  </div>
                 </div>
-                <span className="text-[9px] leading-none text-primary-400">{formatDate(d.date).slice(0, 5)}</span>
+                <span className="text-[9px] leading-none text-primary-400 shrink-0">{formatDate(d.date).slice(0, 5)}</span>
               </div>
             );
           })}

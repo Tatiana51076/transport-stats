@@ -157,7 +157,7 @@ function App() {
 
   return (
     <>
-      <AppShell active={section} onNavigate={handleNavigate} toasts={toasts} onDismissToast={dismiss}>
+      <AppShell active={section} onNavigate={handleNavigate} onLogout={() => { localStorage.removeItem('transport-stats-auth-v2'); setAuthenticated(false); }} toasts={toasts} onDismissToast={dismiss}>
         {renderSection()}
       </AppShell>
       <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 no-print" key={globalVoiceKey}>

@@ -74,52 +74,34 @@ function buildQuery(table: string) {
   return q;
 }
 
-// ── Simple auth ──
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + '-transport-salt-2026');
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+// ── Auth ──
 
 const AUTH_KEY = 'transport-stats-auth-v2';
 
-async function findUser(email: string) {
-  const res = await fetch(`${API}/users?email=eq.${encodeURIComponent(email)}&select=*`, { headers: { Accept: 'application/json' } });
-  if (!res.ok) return null;
-  const users = await res.json();
-  return users?.[0] || null;
+async function authFetch(method: string, data: any) {
+  try {
+    const res = await fetch(`${API}/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ method, ...data }),
+    });
+    return await res.json();
+  } catch { return null; }
 }
-
-// ── Exported supabase client ──
 
 export const supabase = {
   from(table: string) { return buildQuery(table); },
   auth: {
     signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
-      const user = await findUser(email);
-      if (!user) return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
-      const hash = await hashPassword(password);
-      if (user.password_hash !== hash) return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
-      const session = { user: { id: user.id, email: user.email }, access_token: 'local-' + Date.now() };
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ email, password, userId: user.id }));
-      return { data: { user: { id: user.id, email: user.email }, session }, error: null };
+      const result = await authFetch('login', { email, password });
+      if (!result || result.error) return { data: { user: null, session: null }, error: { message: result?.error || 'Invalid login credentials' } };
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ email, password, userId: result.id }));
+      return { data: { user: { id: result.id, email }, session: { user: { id: result.id, email }, access_token: 'local-' + Date.now() } }, error: null };
     },
     signUp: async ({ email, password }: { email: string; password: string }) => {
-      const existing = await findUser(email);
-      if (existing) return { data: { user: null, session: null }, error: { message: 'User already registered' } };
-      const hash = await hashPassword(password);
-      const res = await fetch(`${API}/users`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify({ email, password_hash: hash }),
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        try { const j = JSON.parse(t); return { data: null, error: { message: j.message || t } }; } catch {}
-        return { data: null, error: { message: t } };
-      }
-      return { data: { user: { id: '', email }, session: null }, error: null };
+      const result = await authFetch('register', { email, password });
+      if (!result || result.error) return { data: { user: null, session: null }, error: { message: result?.error || 'Registration failed' } };
+      return { data: { user: { id: result.id || '', email }, session: null }, error: null };
     },
     getSession: async () => {
       const raw = localStorage.getItem(AUTH_KEY);
@@ -127,13 +109,8 @@ export const supabase = {
       try {
         const { email, password, userId } = JSON.parse(raw);
         if (email && password) {
-          const user = await findUser(email);
-          if (user) {
-            const hash = await hashPassword(password);
-            if (user.password_hash === hash) {
-              return { data: { session: { user: { id: user.id, email: user.email }, access_token: 'local-' + Date.now() } } };
-            }
-          }
+          const result = await authFetch('verify', { email, password });
+          if (result && !result.error) return { data: { session: { user: { id: result.id, email }, access_token: 'local-' + Date.now() } } };
         }
       } catch {}
       localStorage.removeItem(AUTH_KEY);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, FileText, Menu, X } from 'lucide-react';
+import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, FileText, LogOut, Menu, X } from 'lucide-react';
 import { Toast, type ToastMessage } from '@/components/Toast';
 
 export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'invoices' | 'reports';
@@ -23,12 +23,13 @@ const NAV_ITEMS: NavItem[] = [
 interface AppShellProps {
   active: Section;
   onNavigate: (s: Section) => void;
+  onLogout: () => void;
   toasts: ToastMessage[];
   onDismissToast: (id: string) => void;
   children: React.ReactNode;
 }
 
-export function AppShell({ active, onNavigate, toasts, onDismissToast, children }: AppShellProps) {
+export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast, children }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleNav = (s: Section) => {
@@ -54,6 +55,12 @@ export function AppShell({ active, onNavigate, toasts, onDismissToast, children 
             <NavButton key={item.key} item={item} active={active === item.key} onClick={() => handleNav(item.key)} />
           ))}
         </nav>
+        <div className="px-3 pb-4">
+          <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-error-600 transition hover:bg-error-50">
+            <LogOut className="h-5 w-5 shrink-0" />
+            <span>Выйти</span>
+          </button>
+        </div>
         <div className="px-6 py-4 text-xs text-primary-300">
           <p>Версия 1.0</p>
         </div>
