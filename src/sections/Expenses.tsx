@@ -29,6 +29,7 @@ interface ExpensesSectionProps {
 }
 
 export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps) {
+  const [tab, setTab] = useState<ExpenseCategory>('leasing');
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<ExpenseWithCar | null>(null);
@@ -102,17 +103,28 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                   {CATEGORY_CONFIG[tab].hasCar && <th className="px-4 py-3 font-semibold">Автомобиль</th>}
                   {CATEGORY_CONFIG[tab].hasEmployee && <th className="px-4 py-3 font-semibold">Сотрудник</th>}
                   {CATEGORY_CONFIG[tab].hasDesc && <th className="px-4 py-3 font-semibold">Описание</th>}
+                  {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Надо оплатить</th>}
+                  {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Срок до</th>}
+                  {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Осталось</th>}
+                  {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Дней</th>}
                   <th className="px-4 py-3 text-right font-semibold">Сумма</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-50">
-                {expenses.map((e) => (
+                {expenses.map((e) => {
+                  const remaining = e.amount_to_pay ? e.amount_to_pay - e.amount : null;
+                  const daysLeft = e.due_date ? Math.ceil((new Date(e.due_date).getTime() - Date.now()) / 86400000) : null;
+                  return (
                   <tr key={e.id} className="transition hover:bg-primary-50/40">
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(e.date)}</td>
                     {CATEGORY_CONFIG[tab].hasCar && <td className="px-4 py-3 text-primary-600">{e.cars?.plate_number || '—'}</td>}
                     {CATEGORY_CONFIG[tab].hasEmployee && <td className="px-4 py-3 text-primary-600">{e.employee_name || '—'}</td>}
                     {CATEGORY_CONFIG[tab].hasDesc && <td className="px-4 py-3 text-primary-600">{e.description || '—'}</td>}
+                    {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold text-primary-800">{e.amount_to_pay ? formatRub(e.amount_to_pay) : '—'}</td>}
+                    {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold text-primary-800">{e.due_date ? formatDate(e.due_date) : '—'}</td>}
+                    {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold" style={{ color: remaining !== null && remaining > 0 ? '#ef4444' : '#22c55e' }}>{remaining !== null ? formatRub(Math.max(remaining, 0)) : '—'}</td>}
+                    {tab === 'taxes' && <td className={`px-4 py-3 text-right font-semibold ${daysLeft !== null && daysLeft <= 7 ? 'text-error-600' : 'text-primary-600'}`}>{daysLeft !== null ? daysLeft + ' дн.' : '—'}</td>}
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(e.amount)}</td>
                     <td className="px-4 py-3 text-right"><DeleteButton onClick={() => setConfirmDelete(e)} /></td>
                   </tr>
@@ -152,6 +164,8 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
   const [amount, setAmount] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [description, setDescription] = useState('');
+  const [amountToPay, setAmountToPay] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -186,6 +200,8 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
       date,
       description: cfg.hasDesc && description.trim() ? description.trim() : null,
       employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
+      amount_to_pay: category === 'taxes' && amountToPay ? parseFloat(amountToPay) : null,
+      due_date: category === 'taxes' && dueDate ? dueDate : null,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -221,6 +237,17 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
             <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
           </Field>
         </div>
+
+        {category === 'taxes' && (
+          <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-primary-100 bg-primary-50/30 p-4">
+            <Field label="Сумма к оплате (всего)">
+              <input type="number" min="0" step="0.01" className="input-base" value={amountToPay} onChange={(e) => setAmountToPay(e.target.value)} placeholder="100000" />
+            </Field>
+            <Field label="Срок оплаты до">
+              <input type="date" className="input-base" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </Field>
+          </div>
+        )}
 
         {err && <p className="text-sm text-error-600">{err}</p>}
 
