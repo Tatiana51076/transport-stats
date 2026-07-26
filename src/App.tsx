@@ -132,7 +132,7 @@ function App() {
       );
     }
     if (section === 'expenses') {
-      return <ExpensesSection cars={refs.cars} notify={notify} />;
+      return <ExpensesSection cars={refs.cars} drivers={refs.drivers} notify={notify} />;
     }
     if (section === 'invoices') {
       return <InvoicesSection contractors={refs.contractors} cars={refs.cars} drivers={refs.drivers} notify={notify} />;

@@ -24,11 +24,11 @@ const CATEGORY_CONFIG: Record<ExpenseCategory, { icon: React.ComponentType<{ cla
 
 interface ExpensesSectionProps {
   cars: Car[];
+  drivers: { id: string; full_name: string }[];
   notify: ToastFn;
 }
 
-export function ExpensesSection({ cars, notify }: ExpensesSectionProps) {
-  const [tab, setTab] = useState<ExpenseCategory>('leasing');
+export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps) {
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<ExpenseWithCar | null>(null);
@@ -81,7 +81,7 @@ export function ExpensesSection({ cars, notify }: ExpensesSectionProps) {
         })}
       </div>
 
-      <AddExpenseForm category={tab} cars={cars} onSaved={load} notify={notify} />
+      <AddExpenseForm category={tab} cars={cars} drivers={drivers} onSaved={load} notify={notify} />
 
       <div className="card-base p-5">
         <div className="mb-4 flex items-center justify-between">
@@ -139,11 +139,12 @@ export function ExpensesSection({ cars, notify }: ExpensesSectionProps) {
 interface AddExpenseFormProps {
   category: ExpenseCategory;
   cars: Car[];
+  drivers: { id: string; full_name: string }[];
   onSaved: () => void;
   notify: ToastFn;
 }
 
-function AddExpenseForm({ category, cars, onSaved, notify }: AddExpenseFormProps) {
+function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpenseFormProps) {
   const cfg = CATEGORY_CONFIG[category];
   const today = toDateInput(new Date().toISOString());
   const [date, setDate] = useState(today);
@@ -174,7 +175,7 @@ function AddExpenseForm({ category, cars, onSaved, notify }: AddExpenseFormProps
     if (!date) { setErr('Укажите дату'); return; }
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum <= 0) { setErr('Сумма должна быть больше 0'); return; }
-    if (cfg.hasEmployee && !employeeName.trim()) { setErr('Укажите сотрудника'); return; }
+    if (cfg.hasEmployee && employeeName && !employeeName.trim()) { setErr('Укажите сотрудника'); return; }
 
     setSaving(true);
     const { error } = await supabase.from('expenses').insert({
@@ -183,7 +184,7 @@ function AddExpenseForm({ category, cars, onSaved, notify }: AddExpenseFormProps
       amount: amountNum,
       date,
       description: cfg.hasDesc && description.trim() ? description.trim() : null,
-      employee_name: cfg.hasEmployee && employeeName.trim() ? employeeName.trim() : null,
+      employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -206,8 +207,8 @@ function AddExpenseForm({ category, cars, onSaved, notify }: AddExpenseFormProps
             </Field>
           )}
           {cfg.hasEmployee && (
-            <Field label="Сотрудник *">
-              <input className="input-base" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} placeholder="ФИО сотрудника" />
+            <Field label="Сотрудник">
+              <Select value={employeeName} onChange={setEmployeeName} options={drivers.map((d) => ({ value: d.full_name, label: d.full_name }))} placeholder="Выберите или пропустите" />
             </Field>
           )}
           {cfg.hasDesc && (
