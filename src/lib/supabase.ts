@@ -38,7 +38,7 @@ function buildQuery(table: string) {
     try {
       const res = await fetch(`${API}/${table}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Prefer: 'return=representation' },
         body: JSON.stringify(Array.isArray(values) ? values : values),
       });
       if (!res.ok) {
@@ -111,7 +111,7 @@ export const supabase = {
       if (existing) return { data: { user: null, session: null }, error: { message: 'User already registered' } };
       const hash = await hashPassword(password);
       const res = await fetch(`${API}/users`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Prefer: 'return=representation' },
         body: JSON.stringify({ email, password_hash: hash }),
       });
       if (!res.ok) {
