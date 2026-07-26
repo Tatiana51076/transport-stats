@@ -95,6 +95,12 @@ export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast,
                 <NavButton key={item.key} item={item} active={active === item.key} onClick={() => handleNav(item.key)} />
               ))}
             </nav>
+            <div className="border-t border-primary-100 p-3">
+              <button onClick={() => { setMobileMenuOpen(false); onLogout(); }} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-error-600 transition hover:bg-error-50">
+                <LogOut className="h-5 w-5 shrink-0" />
+                <span>Выйти</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
