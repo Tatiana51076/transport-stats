@@ -15,11 +15,11 @@ import type { ToastFn } from '@/hooks/useToasts';
 type ExpenseCategory = Expense['category'];
 
 const CATEGORY_CONFIG: Record<ExpenseCategory, { icon: React.ComponentType<{ className?: string }>; label: string; hasCar: boolean; hasDesc: boolean; hasEmployee: boolean }> = {
-  leasing: { icon: FileText, label: 'Лизинг', hasCar: true, hasDesc: false, hasEmployee: false },
-  fuel: { icon: Fuel, label: 'Топливо', hasCar: true, hasDesc: false, hasEmployee: false },
+  leasing: { icon: FileText, label: 'Лизинг', hasCar: true, hasDesc: true, hasEmployee: false },
+  fuel: { icon: Fuel, label: 'Топливо', hasCar: true, hasDesc: true, hasEmployee: false },
   salary: { icon: Users, label: 'Зарплата', hasCar: false, hasDesc: false, hasEmployee: true },
-  taxes: { icon: Receipt, label: 'Налоги', hasCar: true, hasDesc: false, hasEmployee: false },
-  other: { icon: MoreHorizontal, label: 'Прочие', hasCar: true, hasDesc: true, hasEmployee: false },
+  taxes: { icon: Receipt, label: 'Налоги', hasCar: true, hasDesc: true, hasEmployee: true },
+  other: { icon: MoreHorizontal, label: 'Прочие', hasCar: true, hasDesc: true, hasEmployee: true },
 };
 
 interface ExpensesSectionProps {
