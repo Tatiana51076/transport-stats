@@ -157,8 +157,9 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
 
   const voiceLookups = useMemo(() => ({
     cars: cars.map((c) => ({ id: c.id, label: `${c.plate_number} ${c.brand || ''}` })),
-    drivers: [], contractors: [], trips: [],
-  }), [cars]);
+    drivers: drivers.map((d) => ({ id: d.id, label: d.full_name })),
+    contractors: [], trips: [],
+  }), [cars, drivers]);
 
   const handleVoiceResult = useCallback((text: string) => {
     const parsed = parseVoiceInput(text, voiceLookups);

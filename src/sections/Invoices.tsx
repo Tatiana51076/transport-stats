@@ -104,10 +104,19 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
                     <td className="px-4 py-3 text-primary-600">{inv.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(inv.amount)}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${inv.paid ? 'bg-success-50 text-success-700' : 'bg-error-50 text-error-700'}`}>
+                      <button
+                        onClick={async () => {
+                          await supabase.from('invoices').update({ paid: !inv.paid }).eq('id', inv.id);
+                          load();
+                        }}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border transition hover:opacity-80 ${
+                          inv.paid ? 'bg-success-50 text-success-700 border-success-200' : 'bg-error-50 text-error-700 border-error-200'
+                        }`}
+                        title="Нажмите чтобы изменить статус"
+                      >
                         {inv.paid ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                         {inv.paid ? 'Оплачен' : 'Не оплачен'}
-                      </span>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-right"><DeleteButton onClick={() => setConfirmDelete(inv)} /></td>
                   </tr>
