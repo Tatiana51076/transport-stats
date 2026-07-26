@@ -204,7 +204,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
     else { notify('Рейс удалён'); setConfirmRec(null); loadRecords(); }
   };
 
-  const slotsLeft = MAX_RECORDS_PER_CAR - records.length;
+  const slotsLeft = 999999;
 
   return (
     <div className="space-y-6">
@@ -231,12 +231,9 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
       <div className="card-base p-6">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-bold text-primary-900">Рейсы автомобиля</h3>
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${slotsLeft > 0 ? 'bg-primary-50 text-primary-600' : 'bg-error-50 text-error-600'}`}>
-            {records.length} / {MAX_RECORDS_PER_CAR}
-          </span>
         </div>
 
-        {records.length < MAX_RECORDS_PER_CAR ? (
+        {records.length < 999999 ? (
           <AddRecordForm carId={car.id} refs={refs} onSaved={() => { loadRecords(); onRefsReload(); }} notify={notify} />
         ) : (
           <div className="rounded-xl bg-warning-50 px-4 py-3 text-sm text-warning-700">

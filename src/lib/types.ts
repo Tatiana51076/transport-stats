@@ -87,4 +87,4 @@ export interface InvoiceWithRefs extends Invoice {
   drivers?: { id: string; full_name: string } | null;
 }
 
-export const MAX_RECORDS_PER_CAR = 5;
+export const MAX_RECORDS_PER_CAR = 999999;
