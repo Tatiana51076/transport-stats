@@ -68,6 +68,7 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
           title={showPersonal ? "Автомобили ещё не добавлены" : "Нет общих автомобилей"}
           description={showPersonal ? "Нажмите «Добавить автомобиль», чтобы создать первую запись" : "Все автомобили помечены как личные. Включите показ личных выше."}
         />
+      ) : (
         <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleCars.map((car) => (
