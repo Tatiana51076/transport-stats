@@ -195,6 +195,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="flex flex-wrap gap-6 p-4 bg-primary-50 rounded-xl mt-4">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Рейсов</span>
