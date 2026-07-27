@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Truck, Plus, ArrowLeft, Calendar, Hash } from 'lucide-react';
+import { Truck, Plus, ArrowLeft, Calendar, Hash, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Car, RecordWithRefs } from '@/lib/types';
 import { MAX_RECORDS_PER_CAR } from '@/lib/types';
@@ -21,6 +21,7 @@ interface CarListProps {
 
 export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListProps) {
   const [showAdd, setShowAdd] = useState(false);
+  const [editCar, setEditCar] = useState<Car | null>(null);
   const [confirmCar, setConfirmCar] = useState<Car | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -79,7 +80,10 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
                 )}
                 {car.year && <p className="mt-1 text-xs text-primary-400">{car.year} г.{car.vin ? ` · VIN: ${car.vin}` : ''}</p>}
               </div>
-              <div className="absolute right-3 top-3" onClick={(e) => { e.stopPropagation(); setConfirmCar(car); }}>
+              <div className="absolute right-3 top-3 flex gap-1" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setEditCar(car)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать">
+                  <Pencil className="h-4 w-4" />
+                </button>
                 <DeleteButton onClick={() => setConfirmCar(car)} />
               </div>
             </button>
@@ -88,6 +92,8 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
       )}
 
       {showAdd && <AddCarForm onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); onDeleted(); }} notify={notify} />}
+
+      {editCar && <EditCarForm car={editCar} onClose={() => setEditCar(null)} onSaved={() => { setEditCar(null); onDeleted(); }} notify={notify} />}
 
       <ConfirmModal
         open={!!confirmCar}
@@ -159,6 +165,57 @@ function AddCarForm({ onClose, onSaved, notify }: AddCarFormProps) {
           <Field label="VIN">
             <input className="input-base" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="XTA…" />
           </Field>
+        </div>
+        {err && <p className="text-sm text-error-600">{err}</p>}
+        <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
+      </form>
+    </Modal>
+  );
+}
+
+function EditCarForm({ car, onClose, onSaved, notify }: { car: Car; onClose: () => void; onSaved: () => void; notify: ToastFn }) {
+  const [plate, setPlate] = useState(car.plate_number);
+  const [brand, setBrand] = useState(car.brand || '');
+  const [model, setModel] = useState(car.model || '');
+  const [year, setYear] = useState(car.year ? String(car.year) : '');
+  const [vin, setVin] = useState(car.vin || '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!plate.trim()) { setErr('Укажите госномер'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('cars').update({
+      plate_number: plate.trim().toUpperCase(),
+      brand: brand.trim() || null,
+      model: model.trim() || null,
+      year: year ? Number(year) : null,
+      vin: vin.trim() || null,
+    }).eq('id', car.id);
+    setSaving(false);
+    if (error) {
+      if (error.code === '23505') { setErr('Автомобиль с таким госномером уже существует'); return; }
+      setErr(error.message); return;
+    }
+    notify('Автомобиль изменён');
+    onSaved();
+  };
+
+  return (
+    <Modal title="Редактировать автомобиль" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Госномер *">
+          <input className="input-base uppercase" value={plate} onChange={(e) => setPlate(e.target.value)} placeholder="А123ВВ77" autoFocus />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Марка"><input className="input-base" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="ГАЗ" /></Field>
+          <Field label="Модель"><input className="input-base" value={model} onChange={(e) => setModel(e.target.value)} placeholder="Валдай" /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Год выпуска"><input className="input-base" type="number" min="1900" max="2100" value={year} onChange={(e) => setYear(e.target.value)} placeholder="2020" /></Field>
+          <Field label="VIN"><input className="input-base" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="XTA…" /></Field>
         </div>
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />

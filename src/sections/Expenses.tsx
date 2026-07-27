@@ -34,17 +34,22 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<ExpenseWithCar | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let q = supabase
       .from('expenses')
       .select('*, cars(id,plate_number,brand,model)')
-      .eq('category', tab)
-      .order('date', { ascending: false });
+      .eq('category', tab);
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    q = q.order('date', { ascending: false });
+    const { data, error } = await q;
     if (!error) setExpenses((data as ExpenseWithCar[]) || []);
     setLoading(false);
-  }, [tab]);
+  }, [tab, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -80,6 +85,22 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
             </button>
           );
         })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 no-print">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-primary-500">С</label>
+          <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-primary-500">По</label>
+          <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        {(dateFrom || dateTo) && (
+          <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
+            Сбросить
+          </button>
+        )}
       </div>
 
       <AddExpenseForm category={tab} cars={cars} drivers={drivers} onSaved={load} notify={notify} />

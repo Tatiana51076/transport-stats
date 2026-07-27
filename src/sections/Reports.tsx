@@ -54,6 +54,15 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     return rangeFor(period);
   }, [period, customFrom, customTo]);
 
+  const handlePeriodChange = (p: PeriodKey) => {
+    setPeriod(p);
+    if (p !== 'custom') {
+      const r = rangeFor(p);
+      setCustomFrom(r.from);
+      setCustomTo(r.to);
+    }
+  };
+
   const buildReport = async () => {
     if (!from || !to) { notify('Укажите период', 'error'); return; }
     setLoading(true);
@@ -209,7 +218,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
           <p className="label-base">Период</p>
           <div className="flex flex-wrap gap-2">
             {PERIODS.map((p) => (
-              <button key={p.key} onClick={() => setPeriod(p.key)}
+              <button key={p.key} onClick={() => handlePeriodChange(p.key)}
                 className={`rounded-lg px-3.5 py-2 text-sm font-medium transition ${period === p.key ? 'bg-primary-600 text-white shadow-card' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}>
                 {p.label}
               </button>

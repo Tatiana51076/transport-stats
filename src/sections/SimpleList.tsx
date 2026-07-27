@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DeleteButton } from '@/components/DeleteButton';
@@ -27,6 +27,7 @@ interface SimpleListProps {
 
 export function SimpleList({ title, subtitle, fieldName, tableName, items, loading, notify, onChanged }: SimpleListProps) {
   const [showAdd, setShowAdd] = useState(false);
+  const [editItem, setEditItem] = useState<SimpleItem | null>(null);
   const [confirmItem, setConfirmItem] = useState<SimpleItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -67,6 +68,9 @@ export function SimpleList({ title, subtitle, fieldName, tableName, items, loadi
             <div key={item.id} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-primary-50/40">
               <div className="h-2 w-2 shrink-0 rounded-full bg-primary-400" />
               <span className="flex-1 truncate text-sm font-medium text-primary-800">{labelOf(item)}</span>
+              <button onClick={() => setEditItem(item)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать">
+                <Pencil className="h-4 w-4" />
+              </button>
               <DeleteButton onClick={() => setConfirmItem(item)} />
             </div>
           ))}
@@ -81,6 +85,20 @@ export function SimpleList({ title, subtitle, fieldName, tableName, items, loadi
           tableName={tableName}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); onChanged(); }}
+          notify={notify}
+        />
+      )}
+
+      {editItem && (
+        <EditSimpleForm
+          title={`Редактировать — ${title}`}
+          fieldLabel={fieldLabel}
+          fieldName={fieldName}
+          tableName={tableName}
+          item={editItem}
+          value={labelOf(editItem)}
+          onClose={() => setEditItem(null)}
+          onSaved={() => { setEditItem(null); onChanged(); }}
           notify={notify}
         />
       )}
@@ -123,6 +141,49 @@ function AddSimpleForm({ title, fieldLabel, fieldName, tableName, onClose, onSav
     setSaving(false);
     if (error) { setErr(error.message); return; }
     notify('Запись добавлена');
+    onSaved();
+  };
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label={fieldLabel}>
+          <input className="input-base" value={value} onChange={(e) => setValue(e.target.value)} placeholder={fieldLabel} autoFocus />
+        </Field>
+        {err && <p className="text-sm text-error-600">{err}</p>}
+        <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
+      </form>
+    </Modal>
+  );
+}
+
+interface EditSimpleFormProps {
+  title: string;
+  fieldLabel: string;
+  fieldName: string;
+  tableName: 'drivers' | 'contractors' | 'trips';
+  item: SimpleItem;
+  value: string;
+  onClose: () => void;
+  onSaved: () => void;
+  notify: ToastFn;
+}
+
+function EditSimpleForm({ title, fieldLabel, fieldName, tableName, item, value: initialValue, onClose, onSaved, notify }: EditSimpleFormProps) {
+  const [value, setValue] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!value.trim()) { setErr('Поле обязательно для заполнения'); return; }
+    setSaving(true);
+    const payload = tableName === 'drivers' ? { full_name: value.trim() } : { name: value.trim() };
+    const { error } = await supabase.from(tableName).update(payload).eq('id', item.id);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    notify('Запись изменена');
     onSaved();
   };
 
