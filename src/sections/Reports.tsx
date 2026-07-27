@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Printer, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar, Invoice } from '@/lib/types';
