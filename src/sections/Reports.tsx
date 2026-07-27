@@ -73,7 +73,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     if (carFilter.length > 0) q = q.in('car_id', carFilter);
     if (driverFilter.length > 0) q = q.in('driver_id', driverFilter);
     if (contractorFilter.length > 0) q = q.in('contractor_id', contractorFilter);
-    if (excludePersonal) q = q.not('cars.personal', 'eq', true);
+    if (excludePersonal) {
+      const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+      if (rows) setData((rows as RecordWithRefs[]).filter((r) => !personalCarIds.includes(r.car_id)));
+      else setData([]);
+    } else {
+      setData((rows as RecordWithRefs[]) || []);
+    }
     const { data: rows } = await q;
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
