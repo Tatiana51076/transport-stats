@@ -130,6 +130,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                   {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Осталось</th>}
                   {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Дней</th>}
                   <th className="px-4 py-3 text-right font-semibold">Сумма</th>
+                  {tab === 'fuel' && <th className="px-4 py-3 text-right font-semibold">Литров</th>}
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -148,6 +149,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                     {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold" style={{ color: remaining !== null && remaining > 0 ? '#ef4444' : '#22c55e' }}>{remaining !== null ? formatRub(Math.max(remaining, 0)) : '—'}</td>}
                     {tab === 'taxes' && <td className={`px-4 py-3 text-right font-semibold ${daysLeft !== null && daysLeft <= 7 ? 'text-error-600' : 'text-primary-600'}`}>{daysLeft !== null ? daysLeft + ' дн.' : '—'}</td>}
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(e.amount)}</td>
+                    {tab === 'fuel' && <td className="px-4 py-3 text-right font-semibold text-primary-800">{e.liters ? `${e.liters} л` : '—'}</td>}
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
                         <button onClick={() => setEditExpense(e)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать"><Pencil className="h-4 w-4" /></button>
@@ -196,6 +198,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
   const [amount, setAmount] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [description, setDescription] = useState('');
+  const [liters, setLiters] = useState('');
   const [amountToPay, setAmountToPay] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
@@ -234,6 +237,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
       employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
       amount_to_pay: category === 'taxes' && amountToPay ? parseFloat(amountToPay) : null,
       due_date: category === 'taxes' && dueDate ? dueDate : null,
+      liters: category === 'fuel' && liters ? parseFloat(liters) : null,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -269,6 +273,12 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
             <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
           </Field>
         </div>
+
+        {category === 'fuel' && (
+          <Field label="Литров">
+            <input type="number" min="0" step="0.1" className="input-base" value={liters} onChange={(e) => setLiters(e.target.value)} placeholder="50" />
+          </Field>
+        )}
 
         {category === 'taxes' && (
           <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-primary-100 bg-primary-50/30 p-4">

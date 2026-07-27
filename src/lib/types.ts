@@ -55,6 +55,7 @@ export interface Expense {
   date: string;
   description: string | null;
   employee_name: string | null;
+  liters: number | null;
   amount_to_pay: number | null;
   due_date: string | null;
   created_at: string;
