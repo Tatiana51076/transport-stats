@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileText, Fuel, Users, Receipt, MoreHorizontal, Plus, Truck, Calendar, Hash, DollarSign, User, AlignLeft } from 'lucide-react';
+import { FileText, Fuel, Users, Receipt, MoreHorizontal, Plus, Truck, Calendar, Hash, DollarSign, User, AlignLeft, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Expense, ExpenseWithCar, Car } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
@@ -33,6 +33,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<ExpenseWithCar | null>(null);
+  const [editExpense, setEditExpense] = useState<ExpenseWithCar | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -147,7 +148,12 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                     {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold" style={{ color: remaining !== null && remaining > 0 ? '#ef4444' : '#22c55e' }}>{remaining !== null ? formatRub(Math.max(remaining, 0)) : '—'}</td>}
                     {tab === 'taxes' && <td className={`px-4 py-3 text-right font-semibold ${daysLeft !== null && daysLeft <= 7 ? 'text-error-600' : 'text-primary-600'}`}>{daysLeft !== null ? daysLeft + ' дн.' : '—'}</td>}
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(e.amount)}</td>
-                    <td className="px-4 py-3 text-right"><DeleteButton onClick={() => setConfirmDelete(e)} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setEditExpense(e)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать"><Pencil className="h-4 w-4" /></button>
+                        <DeleteButton onClick={() => setConfirmDelete(e)} />
+                      </div>
+                    </td>
                   </tr>
                   );
                 })}
@@ -166,6 +172,10 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
         danger
         confirmLabel={deleting ? 'Удаление…' : 'Удалить'}
       />
+
+      {editExpense && (
+        <EditExpenseForm expense={editExpense} cars={cars} drivers={drivers} category={tab} onClose={() => setEditExpense(null)} onSaved={() => { setEditExpense(null); load(); }} notify={notify} />
+      )}
     </div>
   );
 }
@@ -282,5 +292,86 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
         </div>
       </form>
     </div>
+  );
+}
+
+function EditExpenseForm({ expense, cars, drivers, category, onClose, onSaved, notify }: {
+  expense: ExpenseWithCar;
+  cars: Car[];
+  drivers: { id: string; full_name: string }[];
+  category: ExpenseCategory;
+  onClose: () => void; onSaved: () => void; notify: ToastFn;
+}) {
+  const cfg = CATEGORY_CONFIG[category];
+  const [date, setDate] = useState(toDateInput(expense.date));
+  const [carId, setCarId] = useState(expense.car_id || '');
+  const [amount, setAmount] = useState(String(expense.amount));
+  const [employeeName, setEmployeeName] = useState(expense.employee_name || '');
+  const [description, setDescription] = useState(expense.description || '');
+  const [amountToPay, setAmountToPay] = useState(expense.amount_to_pay ? String(expense.amount_to_pay) : '');
+  const [dueDate, setDueDate] = useState(expense.due_date ? toDateInput(expense.due_date) : '');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!date) { setErr('Укажите дату'); return; }
+    const amountNum = parseFloat(amount);
+    if (!amountNum || amountNum <= 0) { setErr('Сумма должна быть больше 0'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('expenses').update({
+      date,
+      car_id: cfg.hasCar && carId ? carId : null,
+      amount: amountNum,
+      description: cfg.hasDesc && description.trim() ? description.trim() : null,
+      employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
+      amount_to_pay: category === 'taxes' && amountToPay ? parseFloat(amountToPay) : null,
+      due_date: category === 'taxes' && dueDate ? dueDate : null,
+    }).eq('id', expense.id);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    notify('Расход изменён');
+    onSaved();
+  };
+
+  return (
+    <Modal title="Редактировать расход" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Дата *">
+          <input type="date" className="input-base" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        {cfg.hasCar && (
+          <Field label="Автомобиль">
+            <Select value={carId} onChange={setCarId} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Выберите (необязательно)" />
+          </Field>
+        )}
+        {cfg.hasEmployee && (
+          <Field label="Сотрудник">
+            <Select value={employeeName} onChange={setEmployeeName} options={drivers.map((d) => ({ value: d.full_name, label: d.full_name }))} placeholder="Выберите или пропустите" />
+          </Field>
+        )}
+        {cfg.hasDesc && (
+          <Field label="Описание">
+            <input className="input-base" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Назначение расхода" />
+          </Field>
+        )}
+        <Field label="Сумма, ₽ *">
+          <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
+        </Field>
+        {category === 'taxes' && (
+          <div className="grid gap-4 sm:grid-cols-2 rounded-xl border border-primary-100 bg-primary-50/30 p-4">
+            <Field label="Сумма к оплате (всего)">
+              <input type="number" min="0" step="0.01" className="input-base" value={amountToPay} onChange={(e) => setAmountToPay(e.target.value)} placeholder="100000" />
+            </Field>
+            <Field label="Срок оплаты до">
+              <input type="date" className="input-base" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </Field>
+          </div>
+        )}
+        {err && <p className="text-sm text-error-600">{err}</p>}
+        <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
+      </form>
+    </Modal>
   );
 }
