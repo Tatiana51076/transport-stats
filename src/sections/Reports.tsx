@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Printer, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar, Invoice } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
@@ -40,9 +39,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [period, setPeriod] = useState<PeriodKey>('month');
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
   const [customTo, setCustomTo] = useState(rangeFor('month').to);
-  const [carFilter, setCarFilter] = useState('');
-  const [driverFilter, setDriverFilter] = useState('');
-  const [contractorFilter, setContractorFilter] = useState('');
+  const [carFilter, setCarFilter] = useState<string[]>([]);
+  const [driverFilter, setDriverFilter] = useState<string[]>([]);
+  const [contractorFilter, setContractorFilter] = useState<string[]>([]);
   const [data, setData] = useState<RecordWithRefs[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -70,14 +69,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       .from('records')
       .select('*, trips(id,name), drivers(id,full_name), contractors(id,name), cars(id,plate_number,brand,model)')
       .gte('date', from).lte('date', to).order('date', { ascending: true });
-    if (carFilter) q = q.eq('car_id', carFilter);
-    if (driverFilter) q = q.eq('driver_id', driverFilter);
-    if (contractorFilter) q = q.eq('contractor_id', contractorFilter);
+    if (carFilter.length > 0) q = q.in('car_id', carFilter);
+    if (driverFilter.length > 0) q = q.in('driver_id', driverFilter);
+    if (contractorFilter.length > 0) q = q.in('contractor_id', contractorFilter);
     const { data: rows } = await q;
     setData((rows as RecordWithRefs[]) || []);
 
       let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', from).lte('date', to).order('date', { ascending: true });
-    if (carFilter) eq = eq.eq('car_id', carFilter);
+    if (carFilter.length > 0) eq = eq.in('car_id', carFilter);
     const { data: expRows } = await eq;
     setExpenses((expRows as ExpenseWithCar[]) || []);
 
@@ -234,9 +233,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <div><label className="label-base">Автомобиль</label><Select value={carFilter} onChange={setCarFilter} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Все автомобили" /></div>
-          <div><label className="label-base">Водитель</label><Select value={driverFilter} onChange={setDriverFilter} options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Все водители" /></div>
-          <div><label className="label-base">Контрагент</label><Select value={contractorFilter} onChange={setContractorFilter} options={contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Все контрагенты" /></div>
+          <MultiSelect label="Автомобиль" options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} selected={carFilter} onChange={setCarFilter} placeholder="Все автомобили" />
+          <MultiSelect label="Водитель" options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} selected={driverFilter} onChange={setDriverFilter} placeholder="Все водители" />
+          <MultiSelect label="Контрагент" options={contractors.map((c) => ({ value: c.id, label: c.name }))} selected={contractorFilter} onChange={setContractorFilter} placeholder="Все контрагенты" />
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -441,6 +440,50 @@ function GroupTable({ title, rows }: { title: string; rows: { label: string; cou
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function MultiSelect({ label, options, selected, onChange, placeholder }: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  };
+
+  const display = selected.length === 0 ? placeholder : `${selected.length} выбрано`;
+
+  return (
+    <div className="relative">
+      <label className="label-base">{label}</label>
+      <button type="button" onClick={() => setOpen(!open)} className="input-base text-left flex items-center justify-between">
+        <span className={selected.length === 0 ? 'text-primary-300' : 'text-primary-900'}>{display}</span>
+        <span className="text-primary-400 text-xs">▼</span>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl border border-primary-100 bg-white shadow-card-hover max-h-60 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => { onChange([]); setOpen(false); }}
+            className="w-full px-3 py-2 text-left text-xs font-medium text-primary-500 hover:bg-primary-50 border-b border-primary-50"
+          >
+            {placeholder}
+          </button>
+          {options.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-primary-50 transition">
+              <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} className="h-4 w-4 rounded border-primary-300 text-primary-600" />
+              <span className="text-primary-700">{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      {open && <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />}
     </div>
   );
 }
