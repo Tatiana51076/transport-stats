@@ -18,11 +18,6 @@ export function formatDate(iso: string | null | undefined): string {
   return `${dd}.${mm}.${yyyy}`;
 }
 
-export function formatPallets(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
-}
-
 export function toDateInput(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);

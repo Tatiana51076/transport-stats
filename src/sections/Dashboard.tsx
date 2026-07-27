@@ -285,7 +285,7 @@ function TopCard({ title, rows }: { title: string; rows: { label: string; count:
               <div className="h-1.5 overflow-hidden rounded-full bg-primary-50">
                 <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500" style={{ width: `${(r.sum / maxSum) * 100}%` }} />
               </div>
-              <p className="mt-0.5 text-[10px] text-primary-400">{r.count} рейсов{r.pallets ? ` · ${formatPallets(r.pallets)} паллет` : ''}</p>
+              <p className="mt-0.5 text-[10px] text-primary-400">{r.count} рейсов{r.pallets ? ` · ${r.pallets} паллет` : ''}</p>
             </div>
           ))}
         </div>
