@@ -493,6 +493,22 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
                 ))}
               </tbody>
             </table>
+            {records.length > 0 && (
+            <div className="flex flex-wrap gap-6 p-4 bg-primary-50 border-t border-primary-100">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Рейсов</span>
+                <p className="text-xl font-bold text-primary-900">{records.length}</p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Паллет</span>
+                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0)}</p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">На сумму</span>
+                <p className="text-xl font-bold text-primary-900">{formatRub(records.reduce((s, r) => s + Number(r.cost), 0))}</p>
+              </div>
+            </div>
+            )}
           </div>
         )}
       </div>
