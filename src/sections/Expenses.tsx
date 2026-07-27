@@ -237,7 +237,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
       employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
       amount_to_pay: category === 'taxes' && amountToPay ? parseFloat(amountToPay) : null,
       due_date: category === 'taxes' && dueDate ? dueDate : null,
-      liters: category === 'fuel' && liters ? parseFloat(liters) : null,
+      liters: liters ? parseFloat(liters) : null,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }

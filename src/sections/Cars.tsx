@@ -372,6 +372,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
   const [records, setRecords] = useState<RecordWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmRec, setConfirmRec] = useState<RecordWithRefs | null>(null);
+  const [editRec, setEditRec] = useState<RecordWithRefs | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -483,7 +484,10 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}=${r.pallets + r.pallets2}` : ''}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
                     <td className="px-4 py-3 text-right">
-                      <DeleteButton onClick={() => setConfirmRec(r)} />
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setEditRec(r)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать"><Pencil className="h-4 w-4" /></button>
+                        <DeleteButton onClick={() => setConfirmRec(r)} />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -502,6 +506,10 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
         danger
         confirmLabel={deleting ? 'Удаление…' : 'Удалить'}
       />
+
+      {editRec && (
+        <EditRecordForm record={editRec} refs={refs} carId={car.id} onClose={() => setEditRec(null)} onSaved={() => { setEditRec(null); loadRecords(); }} notify={notify} />
+      )}
     </div>
   );
 }
@@ -638,6 +646,62 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
         </button>
       </div>
     </form>
+  );
+}
+
+function EditRecordForm({ record, refs, carId, onClose, onSaved, notify }: {
+  record: RecordWithRefs;
+  refs: { drivers: { id: string; full_name: string }[]; contractors: { id: string; name: string }[]; trips: { id: string; name: string }[] };
+  carId: string;
+  onClose: () => void;
+  onSaved: () => void;
+  notify: ToastFn;
+}) {
+  const [date, setDate] = useState(toDateInput(record.date));
+  const [tripId, setTripId] = useState(record.trip_id || '');
+  const [driverId, setDriverId] = useState(record.driver_id || '');
+  const [contractorId, setContractorId] = useState(record.contractor_id || '');
+  const [cost, setCost] = useState(String(record.cost));
+  const [pallets, setPallets] = useState(String(record.pallets));
+  const [pallets2, setPallets2] = useState(String(record.pallets2 || ''));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!date) { setErr('Укажите дату'); return; }
+    const costNum = parseFloat(cost);
+    const palletsNum = parseInt(pallets, 10);
+    if (!costNum || costNum <= 0) { setErr('Стоимость должна быть больше 0'); return; }
+    if (!palletsNum || palletsNum <= 0) { setErr('Количество паллет должно быть больше 0'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('records').update({
+      date, trip_id: tripId, driver_id: driverId, contractor_id: contractorId,
+      cost: costNum, pallets: palletsNum,
+      pallets2: parseInt(pallets2, 10) || 0,
+    }).eq('id', record.id);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    notify('Рейс изменён');
+    onSaved();
+  };
+
+  return (
+    <Modal title="Редактировать рейс" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Дата *"><input type="date" className="input-base" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <Field label="Рейс *"><Select value={tripId} onChange={setTripId} options={refs.trips.map((t) => ({ value: t.id, label: t.name }))} placeholder="Выберите рейс" /></Field>
+          <Field label="Водитель *"><Select value={driverId} onChange={setDriverId} options={refs.drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Выберите водителя" /></Field>
+          <Field label="Контрагент *"><Select value={contractorId} onChange={setContractorId} options={refs.contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Выберите контрагента" /></Field>
+          <Field label="Паллеты *"><div className="flex items-center gap-2"><input type="number" min="1" step="1" className="input-base flex-1" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" /><span className="text-primary-400 font-semibold">+</span><input type="number" min="0" step="1" className="input-base flex-1" value={pallets2} onChange={(e) => setPallets2(e.target.value)} placeholder="5" />{pallets || pallets2 ? <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {(parseInt(pallets)||0)+(parseInt(pallets2)||0)}</span> : ''}</div></Field>
+          <Field label="Стоимость, ₽ *"><input type="number" min="0" step="0.01" className="input-base" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="3000.00" /></Field>
+        </div>
+        {err && <p className="text-sm text-error-600">{err}</p>}
+        <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
+      </form>
+    </Modal>
   );
 }
 

@@ -64,6 +64,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
   };
 
+  const expenseFrom = useMemo(() => from ? from.slice(0, 7) + '-01' : '', [from]);
+  const expenseTo = useMemo(() => to ? to.slice(0, 7) + '-' + new Date(Number(to.slice(0, 4)), Number(to.slice(5, 7)), 0).getDate().toString().padStart(2, '0') : '', [to]);
+
   const buildReport = async () => {
     if (!from || !to) { notify('Укажите период', 'error'); return; }
     setLoading(true);
@@ -82,7 +85,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       setData((rows as RecordWithRefs[]) || []);
     }
 
-      let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', from).lte('date', to).order('date', { ascending: true });
+      let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', expenseFrom).lte('date', expenseTo).order('date', { ascending: true });
     if (carFilter.length > 0) eq = eq.in('car_id', carFilter);
     const { data: expRows } = await eq;
     let filteredExpenses = (expRows as ExpenseWithCar[]) || [];
