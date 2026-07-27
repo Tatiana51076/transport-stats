@@ -24,6 +24,9 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
   const [editCar, setEditCar] = useState<Car | null>(null);
   const [confirmCar, setConfirmCar] = useState<Car | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showPersonal, setShowPersonal] = useState(true);
+
+  const visibleCars = showPersonal ? cars : cars.filter((c) => !c.personal);
 
   const handleDelete = async () => {
     if (!confirmCar) return;
@@ -55,14 +58,19 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
 
       {loading ? (
         <LoadingState />
-      ) : cars.length === 0 ? (
+      ) : visibleCars.length === 0 ? (
         <EmptyState
-          title="Автомобили ещё не добавлены"
-          description="Нажмите «Добавить автомобиль», чтобы создать первую запись"
-        />
+          title={showPersonal ? "Автомобили ещё не добавлены" : "Нет общих автомобилей"}
+          description={showPersonal ? "Нажмите «Добавить автомобиль», чтобы создать первую запись" : "Все автомобили помечены как личные. Включите показ личных выше."}
+      />
+
+      <label className="flex items-center gap-2 cursor-pointer no-print">
+        <input type="checkbox" checked={showPersonal} onChange={(e) => setShowPersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+        <span className="text-xs text-primary-500">Показывать личные автомобили</span>
+      </label>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cars.map((car) => (
+          {visibleCars.map((car) => (
             <button
               key={car.id}
               onClick={() => onOpen(car)}
@@ -79,6 +87,7 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
                   </p>
                 )}
                 {car.year && <p className="mt-1 text-xs text-primary-400">{car.year} г.{car.vin ? ` · VIN: ${car.vin}` : ''}</p>}
+                {car.personal && <span className="mt-1 inline-block rounded-full bg-accent-50 px-2 py-0.5 text-[10px] font-semibold text-accent-600">Личный</span>}
               </div>
               <div className="absolute right-3 top-3 flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => setEditCar(car)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать">
@@ -229,6 +238,7 @@ function AddCarForm({ onClose, onSaved, notify }: AddCarFormProps) {
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
   const [vin, setVin] = useState('');
+  const [personal, setPersonal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -243,6 +253,7 @@ function AddCarForm({ onClose, onSaved, notify }: AddCarFormProps) {
       model: model.trim() || null,
       year: year ? Number(year) : null,
       vin: vin.trim() || null,
+      personal,
     });
     setSaving(false);
     if (error) {
@@ -276,6 +287,13 @@ function AddCarForm({ onClose, onSaved, notify }: AddCarFormProps) {
           </Field>
         </div>
         {err && <p className="text-sm text-error-600">{err}</p>}
+        <label className="flex items-center gap-2 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50 no-print">
+          <input type="checkbox" checked={personal} onChange={(e) => setPersonal(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
+          <div>
+            <p className="text-sm font-medium text-primary-800">Личный автомобиль</p>
+            <p className="text-xs text-primary-400">Не будет участвовать в общих отчётах</p>
+          </div>
+        </label>
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
     </Modal>
@@ -288,6 +306,7 @@ function EditCarForm({ car, onClose, onSaved, notify }: { car: Car; onClose: () 
   const [model, setModel] = useState(car.model || '');
   const [year, setYear] = useState(car.year ? String(car.year) : '');
   const [vin, setVin] = useState(car.vin || '');
+  const [personal, setPersonal] = useState(car.personal || false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -302,6 +321,7 @@ function EditCarForm({ car, onClose, onSaved, notify }: { car: Car; onClose: () 
       model: model.trim() || null,
       year: year ? Number(year) : null,
       vin: vin.trim() || null,
+      personal,
     }).eq('id', car.id);
     setSaving(false);
     if (error) {
@@ -327,6 +347,13 @@ function EditCarForm({ car, onClose, onSaved, notify }: { car: Car; onClose: () 
           <Field label="VIN"><input className="input-base" value={vin} onChange={(e) => setVin(e.target.value)} placeholder="XTA…" /></Field>
         </div>
         {err && <p className="text-sm text-error-600">{err}</p>}
+        <label className="flex items-center gap-2 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50 no-print">
+          <input type="checkbox" checked={personal} onChange={(e) => setPersonal(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
+          <div>
+            <p className="text-sm font-medium text-primary-800">Личный автомобиль</p>
+            <p className="text-xs text-primary-400">Не будет участвовать в общих отчётах</p>
+          </div>
+        </label>
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
     </Modal>

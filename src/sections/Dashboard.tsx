@@ -40,6 +40,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
   const [carFilter, setCarFilter] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
   const [contractorFilter, setContractorFilter] = useState('');
+  const [excludePersonal, setExcludePersonal] = useState(false);
   const [data, setData] = useState<RecordWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,8 +62,14 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
     if (contractorFilter) query = query.eq('contractor_id', contractorFilter);
     const { data: rows, error } = await query;
     setLoading(false);
-    if (!error) setData((rows as RecordWithRefs[]) || []);
-  }, [period, from, to, carFilter, driverFilter, contractorFilter]);
+    if (error) return;
+    let result = (rows as RecordWithRefs[]) || [];
+    if (excludePersonal) {
+      const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+      result = result.filter((r) => !personalCarIds.includes(r.car_id));
+    }
+    setData(result);
+  }, [period, from, to, carFilter, driverFilter, contractorFilter, excludePersonal, cars]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -172,6 +179,11 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
           )}
         </div>
       )}
+
+      <label className="flex items-center gap-2 cursor-pointer mb-4 no-print">
+        <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+        <span className="text-xs text-primary-500">Исключить личные автомобили</span>
+      </label>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard icon={<Receipt className="h-5 w-5" />} label="Выручка" value={formatRub(stats.totalCost)} accent="primary" />

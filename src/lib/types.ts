@@ -5,6 +5,7 @@ export interface Car {
   model: string | null;
   year: number | null;
   vin: string | null;
+  personal: boolean;
   created_at: string;
 }
 

@@ -42,6 +42,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [carFilter, setCarFilter] = useState<string[]>([]);
   const [driverFilter, setDriverFilter] = useState<string[]>([]);
   const [contractorFilter, setContractorFilter] = useState<string[]>([]);
+  const [excludePersonal, setExcludePersonal] = useState(false);
   const [data, setData] = useState<RecordWithRefs[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithCar[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -72,13 +73,25 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     if (carFilter.length > 0) q = q.in('car_id', carFilter);
     if (driverFilter.length > 0) q = q.in('driver_id', driverFilter);
     if (contractorFilter.length > 0) q = q.in('contractor_id', contractorFilter);
+    if (excludePersonal) q = q.not('cars.personal', 'eq', true);
     const { data: rows } = await q;
-    setData((rows as RecordWithRefs[]) || []);
+    if (excludePersonal) {
+      const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+      if (rows) setData((rows as RecordWithRefs[]).filter((r) => !personalCarIds.includes(r.car_id)));
+      else setData([]);
+    } else {
+      setData((rows as RecordWithRefs[]) || []);
+    }
 
       let eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', from).lte('date', to).order('date', { ascending: true });
     if (carFilter.length > 0) eq = eq.in('car_id', carFilter);
     const { data: expRows } = await eq;
-    setExpenses((expRows as ExpenseWithCar[]) || []);
+    let filteredExpenses = (expRows as ExpenseWithCar[]) || [];
+    if (excludePersonal) {
+      const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+      filteredExpenses = filteredExpenses.filter((e) => e.car_id && !personalCarIds.includes(e.car_id));
+    }
+    setExpenses(filteredExpenses);
 
     let iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
     const { data: invRows } = await iq;
@@ -237,6 +250,10 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
           <MultiSelect label="Водитель" options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} selected={driverFilter} onChange={setDriverFilter} placeholder="Все водители" />
           <MultiSelect label="Контрагент" options={contractors.map((c) => ({ value: c.id, label: c.name }))} selected={contractorFilter} onChange={setContractorFilter} placeholder="Все контрагенты" />
         </div>
+        <label className="flex items-center gap-2 cursor-pointer pt-2">
+          <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+          <span className="text-sm text-primary-600">Исключить личные автомобили</span>
+        </label>
 
         <div className="flex flex-wrap items-center gap-3">
           <button onClick={buildReport} disabled={loading} className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-primary-700 disabled:opacity-60">
