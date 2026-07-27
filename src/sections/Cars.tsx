@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Truck, Plus, ArrowLeft, Calendar, Hash, Pencil } from 'lucide-react';
+import { Truck, Plus, ArrowLeft, Calendar, Hash, Pencil, Filter } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Car, RecordWithRefs } from '@/lib/types';
 import { MAX_RECORDS_PER_CAR } from '@/lib/types';
@@ -104,6 +104,99 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
         danger
         confirmLabel={deleting ? 'Удаление…' : 'Удалить'}
       />
+
+      <RecordsFilter cars={cars} notify={notify} />
+    </div>
+  );
+}
+
+function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
+  const [carId, setCarId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [records, setRecords] = useState<RecordWithRefs[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!carId && !dateFrom && !dateTo) { setRecords([]); return; }
+    setLoading(true);
+    let q = supabase.from('records').select('*, trips(id,name), drivers(id,full_name), contractors(id,name), cars(id,plate_number,brand,model)');
+    if (carId) q = q.eq('car_id', carId);
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    q = q.order('date', { ascending: false });
+    const { data, error } = await q;
+    if (!error) setRecords((data as RecordWithRefs[]) || []);
+    setLoading(false);
+  }, [carId, dateFrom, dateTo]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="card-base p-6 no-print">
+      <div className="flex items-center gap-2 mb-4">
+        <Filter className="h-5 w-5 text-primary-500" />
+        <h3 className="text-base font-bold text-primary-900">Просмотр рейсов</h3>
+      </div>
+      <div className="flex flex-wrap items-end gap-4 mb-4">
+        <div>
+          <label className="label-base">Автомобиль</label>
+          <select className="input-base" value={carId} onChange={(e) => setCarId(e.target.value)}>
+            <option value="">Все автомобили</option>
+            {cars.map((c) => <option key={c.id} value={c.id}>{c.plate_number}{c.brand ? ` · ${c.brand}` : ''}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label-base">С</label>
+          <input type="date" className="input-base" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        </div>
+        <div>
+          <label className="label-base">По</label>
+          <input type="date" className="input-base" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        {(carId || dateFrom || dateTo) && (
+          <button onClick={() => { setCarId(''); setDateFrom(''); setDateTo(''); setRecords([]); }} className="text-xs text-primary-500 hover:text-primary-700 underline mb-1">
+            Сбросить
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <LoadingState label="Загрузка рейсов…" />
+      ) : carId || dateFrom || dateTo ? (
+        records.length === 0 ? (
+          <EmptyState title="Нет рейсов" description="Не найдено рейсов по выбранным фильтрам" />
+        ) : (
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
+                  <th className="px-4 py-3 font-semibold">Дата</th>
+                  <th className="px-4 py-3 font-semibold">Автомобиль</th>
+                  <th className="px-4 py-3 font-semibold">Рейс</th>
+                  <th className="px-4 py-3 font-semibold">Водитель</th>
+                  <th className="px-4 py-3 font-semibold">Контрагент</th>
+                  <th className="px-4 py-3 text-right font-semibold">Паллеты</th>
+                  <th className="px-4 py-3 text-right font-semibold">Стоимость</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-primary-50">
+                {records.map((r) => (
+                  <tr key={r.id} className="transition hover:bg-primary-50/40">
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(r.date)}</td>
+                    <td className="px-4 py-3 text-primary-600">{r.cars?.plate_number || '—'}</td>
+                    <td className="px-4 py-3 text-primary-600">{r.trips?.name || '—'}</td>
+                    <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
+                    <td className="px-4 py-3 text-primary-600">{r.contractors?.name || '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}` : ''}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : null}
     </div>
   );
 }
@@ -237,18 +330,23 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
   const [loading, setLoading] = useState(true);
   const [confirmRec, setConfirmRec] = useState<RecordWithRefs | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    let q = supabase
       .from('records')
       .select('*, trips(id,name), drivers(id,full_name), contractors(id,name)')
-      .eq('car_id', car.id)
-      .order('date', { ascending: false });
+      .eq('car_id', car.id);
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    q = q.order('date', { ascending: false });
+    const { data, error } = await q;
     if (error) { notify('Ошибка загрузки рейсов', 'error'); }
     setRecords((data as RecordWithRefs[]) || []);
     setLoading(false);
-  }, [car.id, notify]);
+  }, [car.id, dateFrom, dateTo, notify]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
@@ -286,8 +384,22 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
       </div>
 
       <div className="card-base p-6">
-        <div className="mb-5 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-primary-900">Рейсы автомобиля</h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-4 no-print">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-primary-500">С</label>
+            <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-primary-500">По</label>
+            <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-primary-500 hover:text-primary-700 underline">Сбросить</button>
+          )}
         </div>
 
         {records.length < 999999 ? (
