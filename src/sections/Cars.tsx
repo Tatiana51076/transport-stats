@@ -56,19 +56,19 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
         }
       />
 
+      <label className="flex items-center gap-2 cursor-pointer no-print mb-4">
+        <input type="checkbox" checked={showPersonal} onChange={(e) => setShowPersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+        <span className="text-xs text-primary-500">Показывать личные автомобили</span>
+      </label>
+
       {loading ? (
         <LoadingState />
       ) : visibleCars.length === 0 ? (
         <EmptyState
           title={showPersonal ? "Автомобили ещё не добавлены" : "Нет общих автомобилей"}
           description={showPersonal ? "Нажмите «Добавить автомобиль», чтобы создать первую запись" : "Все автомобили помечены как личные. Включите показ личных выше."}
-      />
-
-      <label className="flex items-center gap-2 cursor-pointer no-print">
-        <input type="checkbox" checked={showPersonal} onChange={(e) => setShowPersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
-        <span className="text-xs text-primary-500">Показывать личные автомобили</span>
-      </label>
-      ) : (
+        />
+        <>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleCars.map((car) => (
             <button
