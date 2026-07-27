@@ -167,7 +167,8 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
         records.length === 0 ? (
           <EmptyState title="Нет рейсов" description="Не найдено рейсов по выбранным фильтрам" />
         ) : (
-          <div className="overflow-x-auto scrollbar-thin">
+          <div>
+            <div className="overflow-x-auto scrollbar-thin mb-4">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
@@ -194,6 +195,20 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
                 ))}
               </tbody>
             </table>
+            <div className="flex flex-wrap gap-6 p-4 bg-primary-50 rounded-xl mt-4">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Рейсов</span>
+                <p className="text-xl font-bold text-primary-900">{records.length}</p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Паллет</span>
+                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0)}</p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">На сумму</span>
+                <p className="text-xl font-bold text-primary-900">{formatRub(records.reduce((s, r) => s + Number(r.cost), 0))}</p>
+              </div>
+            </div>
           </div>
         )
       ) : null}
