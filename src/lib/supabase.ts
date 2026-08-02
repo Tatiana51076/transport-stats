@@ -13,6 +13,10 @@ function buildQuery(table: string) {
     eq(col: string, val: any) { params.push(`${col}=eq.${encodeURIComponent(String(val))}`); return q; },
     gte(col: string, val: any) { params.push(`${col}=gte.${encodeURIComponent(String(val))}`); return q; },
     lte(col: string, val: any) { params.push(`${col}=lte.${encodeURIComponent(String(val))}`); return q; },
+    in(col: string, vals: any[]) {
+      if (vals && vals.length > 0) params.push(`${col}=in.(${vals.map((v) => encodeURIComponent(String(v))).join(',')})`);
+      return q;
+    },
     order(col: string, opts?: { ascending?: boolean }) {
       params.push(`order=${encodeURIComponent(col)}.${opts?.ascending !== false ? 'asc' : 'desc'}`);
       return q;
