@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Fuel, Plus, Truck, User, Droplets, Receipt, TrendingUp, Calendar } from 'lucide-react';
+import { Fuel, Plus, Truck, User, Droplets, Receipt, TrendingUp, Calendar, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { RefuelWithRefs, Car } from '@/lib/types';
 import { formatRub, formatDate, toDateInput } from '@/lib/format';
@@ -37,6 +37,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<RefuelWithRefs | null>(null);
+  const [editRefuel, setEditRefuel] = useState<RefuelWithRefs | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Report state
@@ -197,7 +198,12 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
                     <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.liters ? `${r.liters} л` : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
-                    <td className="px-4 py-3 text-right"><DeleteButton onClick={() => setConfirmDelete(r)} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setEditRefuel(r)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать"><Pencil className="h-4 w-4" /></button>
+                        <DeleteButton onClick={() => setConfirmDelete(r)} />
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -215,6 +221,10 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
         danger
         confirmLabel={deleting ? 'Удаление…' : 'Удалить'}
       />
+
+      {editRefuel && (
+        <EditRefuelForm refuel={editRefuel} cars={cars} drivers={drivers} onClose={() => setEditRefuel(null)} onSaved={() => { setEditRefuel(null); load(); }} notify={notify} />
+      )}
     </div>
   );
 }
@@ -353,5 +363,53 @@ function RankingCard({ title, rows, icon }: { title: string; rows: { label: stri
         </div>
       )}
     </div>
+  );
+}
+
+function EditRefuelForm({ refuel, cars, drivers, onClose, onSaved, notify }: {
+  refuel: RefuelWithRefs;
+  cars: Car[];
+  drivers: { id: string; full_name: string }[];
+  onClose: () => void; onSaved: () => void; notify: ToastFn;
+}) {
+  const [date, setDate] = useState(toDateInput(refuel.date));
+  const [carId, setCarId] = useState(refuel.car_id || '');
+  const [driverId, setDriverId] = useState(refuel.driver_id || '');
+  const [liters, setLiters] = useState(refuel.liters ? String(refuel.liters) : '');
+  const [cost, setCost] = useState(String(refuel.cost));
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!date) { setErr('Укажите дату'); return; }
+    const costNum = parseFloat(cost);
+    if (!costNum || costNum <= 0) { setErr('Стоимость должна быть больше 0'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('refuels').update({
+      date, car_id: carId || null, driver_id: driverId || null,
+      liters: liters ? parseFloat(liters) : null, cost: costNum,
+    }).eq('id', refuel.id);
+    setSaving(false);
+    if (error) { setErr(error.message); return; }
+    notify('Заправка изменена');
+    onSaved();
+  };
+
+  return (
+    <Modal title="Редактировать заправку" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Дата *"><input type="date" className="input-base" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+          <Field label="Литры"><input type="number" min="0" step="0.1" className="input-base" value={liters} onChange={(e) => setLiters(e.target.value)} placeholder="50" /></Field>
+        </div>
+        <Field label="Автомобиль"><Select value={carId} onChange={setCarId} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Выберите (необязательно)" /></Field>
+        <Field label="Водитель"><Select value={driverId} onChange={setDriverId} options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Выберите (необязательно)" /></Field>
+        <Field label="Стоимость, ₽ *"><input type="number" min="0" step="0.01" className="input-base" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="5000" /></Field>
+        {err && <p className="text-sm text-error-600">{err}</p>}
+        <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
+      </form>
+    </Modal>
   );
 }
