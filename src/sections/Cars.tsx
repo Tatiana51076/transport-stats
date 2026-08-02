@@ -198,7 +198,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
                     <td className="px-4 py-3 text-primary-600">{r.trips?.name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.contractors?.name || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}` : ''}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}` : ''}{r.pallets3 > 0 ? `+${r.pallets3}` : ''}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
                   </tr>
                 ))}
@@ -212,7 +212,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
               </div>
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Паллет</span>
-                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0)}</p>
+                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0), 0)}</p>
               </div>
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">На сумму</span>
@@ -481,7 +481,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
                     <td className="px-4 py-3 text-primary-600">{r.trips?.name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-primary-600">{r.contractors?.name || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}=${r.pallets + r.pallets2}` : ''}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-primary-800">{r.pallets}{r.pallets2 > 0 ? `+${r.pallets2}` : ''}{r.pallets3 > 0 ? `+${r.pallets3}` : ''}{(r.pallets2 > 0 || r.pallets3 > 0) ? `=${r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0)}` : ''}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(r.cost)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
@@ -501,7 +501,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
               </div>
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Паллет</span>
-                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0)}</p>
+                <p className="text-xl font-bold text-primary-900">{records.reduce((s, r) => s + r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0), 0)}</p>
               </div>
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">На сумму</span>
@@ -546,6 +546,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
   const [cost, setCost] = useState('');
   const [pallets, setPallets] = useState('');
   const [pallets2, setPallets2] = useState('');
+  const [pallets3, setPallets3] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -592,6 +593,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
     const costNum = parseFloat(cost);
     const palletsNum = parseInt(pallets, 10);
     const pallets2Num = parseInt(pallets2, 10) || 0;
+    const pallets3Num = parseInt(pallets3, 10) || 0;
     if (!costNum || costNum <= 0) { setErr('Стоимость должна быть больше 0'); return; }
     if (!palletsNum || palletsNum <= 0) { setErr('Количество паллет должно быть больше 0'); return; }
 
@@ -605,6 +607,7 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
       cost: costNum,
       pallets: palletsNum,
       pallets2: pallets2Num,
+      pallets3: pallets3Num,
     });
     setSaving(false);
     if (error) {
@@ -641,7 +644,9 @@ function AddRecordForm({ carId, refs, onSaved, notify }: AddRecordFormProps) {
             <input type="number" min="1" step="1" className="input-base flex-1" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" />
             <span className="text-primary-400 font-semibold">+</span>
             <input type="number" min="0" step="1" className="input-base flex-1" value={pallets2} onChange={(e) => setPallets2(e.target.value)} placeholder="5" />
-            {(pallets || pallets2) && <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {((parseInt(pallets)||0)+(parseInt(pallets2)||0))}</span>}
+            <span className="text-primary-400 font-semibold">+</span>
+            <input type="number" min="0" step="1" className="input-base flex-1" value={pallets3} onChange={(e) => setPallets3(e.target.value)} placeholder="4" />
+            {(pallets || pallets2 || pallets3) && <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {((parseInt(pallets)||0)+(parseInt(pallets2)||0)+(parseInt(pallets3)||0))}</span>}
           </div>
         </Field>
         <Field label="Стоимость, ₽ *">
@@ -680,6 +685,7 @@ function EditRecordForm({ record, refs, carId, onClose, onSaved, notify }: {
   const [cost, setCost] = useState(String(record.cost));
   const [pallets, setPallets] = useState(String(record.pallets));
   const [pallets2, setPallets2] = useState(String(record.pallets2 || ''));
+  const [pallets3, setPallets3] = useState(String(record.pallets3 || ''));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -696,6 +702,7 @@ function EditRecordForm({ record, refs, carId, onClose, onSaved, notify }: {
       date, trip_id: tripId, driver_id: driverId, contractor_id: contractorId,
       cost: costNum, pallets: palletsNum,
       pallets2: parseInt(pallets2, 10) || 0,
+      pallets3: parseInt(pallets3, 10) || 0,
     }).eq('id', record.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -711,7 +718,7 @@ function EditRecordForm({ record, refs, carId, onClose, onSaved, notify }: {
           <Field label="Рейс *"><Select value={tripId} onChange={setTripId} options={refs.trips.map((t) => ({ value: t.id, label: t.name }))} placeholder="Выберите рейс" /></Field>
           <Field label="Водитель *"><Select value={driverId} onChange={setDriverId} options={refs.drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Выберите водителя" /></Field>
           <Field label="Контрагент *"><Select value={contractorId} onChange={setContractorId} options={refs.contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Выберите контрагента" /></Field>
-          <Field label="Паллеты *"><div className="flex items-center gap-2"><input type="number" min="1" step="1" className="input-base flex-1" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" /><span className="text-primary-400 font-semibold">+</span><input type="number" min="0" step="1" className="input-base flex-1" value={pallets2} onChange={(e) => setPallets2(e.target.value)} placeholder="5" />{pallets || pallets2 ? <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {(parseInt(pallets)||0)+(parseInt(pallets2)||0)}</span> : ''}</div></Field>
+          <Field label="Паллеты *"><div className="flex items-center gap-2"><input type="number" min="1" step="1" className="input-base flex-1" value={pallets} onChange={(e) => setPallets(e.target.value)} placeholder="10" /><span className="text-primary-400 font-semibold">+</span><input type="number" min="0" step="1" className="input-base flex-1" value={pallets2} onChange={(e) => setPallets2(e.target.value)} placeholder="5" /><span className="text-primary-400 font-semibold">+</span><input type="number" min="0" step="1" className="input-base flex-1" value={pallets3} onChange={(e) => setPallets3(e.target.value)} placeholder="4" />{pallets || pallets2 || pallets3 ? <span className="text-sm font-bold text-primary-600 whitespace-nowrap">= {(parseInt(pallets)||0)+(parseInt(pallets2)||0)+(parseInt(pallets3)||0)}</span> : ''}</div></Field>
           <Field label="Стоимость, ₽ *"><input type="number" min="0" step="0.01" className="input-base" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="3000.00" /></Field>
         </div>
         {err && <p className="text-sm text-error-600">{err}</p>}

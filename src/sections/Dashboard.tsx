@@ -76,7 +76,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
   const stats = useMemo(() => {
     const totalCost = data.reduce((s, r) => s + Number(r.cost), 0);
     const totalTrips = data.length;
-    const totalPallets = data.reduce((s, r) => s + r.pallets + (r.pallets2 || 0), 0);
+    const totalPallets = data.reduce((s, r) => s + r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0), 0);
     const avgCheck = totalTrips > 0 ? totalCost / totalTrips : 0;
     const costPerPallet = totalPallets > 0 ? totalCost / totalPallets : 0;
 
@@ -97,7 +97,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
         const e = map.get(k.id) || { label: k.label, count: 0, sum: 0, pallets: 0 };
         e.count += 1;
         e.sum += Number(r.cost);
-        e.pallets += r.pallets + (r.pallets2 || 0);
+        e.pallets += r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0);
         map.set(k.id, e);
       }
       return Array.from(map.values()).sort((a, b) => b.sum - a.sum);

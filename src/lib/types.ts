@@ -37,6 +37,7 @@ export interface RecordRow {
   cost: number;
   pallets: number;
   pallets2: number;
+  pallets3: number;
   created_at: string;
 }
 
