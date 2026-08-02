@@ -8,6 +8,7 @@ import { SimpleList } from '@/sections/SimpleList';
 import { Reports } from '@/sections/Reports';
 import { ExpensesSection } from '@/sections/Expenses';
 import { InvoicesSection } from '@/sections/Invoices';
+import { Refuels } from '@/sections/Refuels';
 import { AuthPage } from '@/sections/Auth';
 import { parseVoiceInput } from '@/lib/voiceParser';
 import { VoiceInputButton } from '@/components/VoiceInput';
@@ -136,6 +137,9 @@ function App() {
     }
     if (section === 'invoices') {
       return <InvoicesSection contractors={refs.contractors} cars={refs.cars} drivers={refs.drivers} notify={notify} />;
+    }
+    if (section === 'refuels') {
+      return <Refuels cars={refs.cars} drivers={refs.drivers} notify={notify} />;
     }
     if (section === 'reports') {
       return <Reports cars={refs.cars} drivers={refs.drivers} contractors={refs.contractors} notify={notify} />;

@@ -90,4 +90,19 @@ export interface InvoiceWithRefs extends Invoice {
   drivers?: { id: string; full_name: string } | null;
 }
 
+export interface Refuel {
+  id: string;
+  date: string;
+  liters: number | null;
+  cost: number;
+  car_id: string | null;
+  driver_id: string | null;
+  created_at: string;
+}
+
+export interface RefuelWithRefs extends Refuel {
+  cars?: { id: string; plate_number: string } | null;
+  drivers?: { id: string; full_name: string } | null;
+}
+
 export const MAX_RECORDS_PER_CAR = 999999;
