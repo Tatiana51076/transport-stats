@@ -47,6 +47,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
   const [deleting, setDeleting] = useState(false);
   const [period, setPeriod] = useState<PeriodKey>('all');
   const [contractorFilter, setContractorFilter] = useState('');
+  const [excludePersonal, setExcludePersonal] = useState(false);
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
   const [customTo, setCustomTo] = useState(rangeFor('month').to);
 
@@ -70,9 +71,15 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
   useEffect(() => { load(); }, [load]);
 
   const filteredInvoices = useMemo(() => {
-    if (!contractorFilter) return invoices;
-    return invoices.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
-  }, [invoices, contractorFilter, contractors]);
+    let rows = invoices;
+    if (contractorFilter) {
+      rows = rows.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
+    }
+    if (excludePersonal) {
+      rows = rows.filter((i) => !i.personal);
+    }
+    return rows;
+  }, [invoices, contractorFilter, contractors, excludePersonal]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -131,6 +138,10 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
             <Select value={contractorFilter} onChange={setContractorFilter} options={contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Все контрагенты" />
           </div>
         </div>
+        <label className="flex items-center gap-2 cursor-pointer mt-3">
+          <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+          <span className="text-sm text-primary-600">Исключить личные автомобили</span>
+        </label>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
