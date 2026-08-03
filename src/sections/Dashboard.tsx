@@ -69,9 +69,21 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
       result = result.filter((r) => !personalCarIds.includes(r.car_id));
     }
     setData(result);
-  }, [period, from, to, carFilter, driverFilter, contractorFilter, excludePersonal, cars]);
+  }, [from, to, carFilter, driverFilter, contractorFilter, excludePersonal, cars]);
 
-  useEffect(() => { load(); }, [load]);
+  const applyPeriod = useCallback((p: DashPeriod) => {
+    setPeriod(p);
+    if (p !== 'custom') {
+      const r = rangeFor(p);
+      setCustomFrom(r.from);
+      setCustomTo(r.to);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (period !== 'custom') load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, carFilter, driverFilter, contractorFilter, excludePersonal]);
 
   const stats = useMemo(() => {
     const totalCost = data.reduce((s, r) => s + Number(r.cost), 0);
@@ -134,7 +146,7 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
           {DASH_PERIODS.map((p) => (
             <button
               key={p.key}
-              onClick={() => setPeriod(p.key)}
+              onClick={() => applyPeriod(p.key)}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === p.key ? 'bg-accent-600 text-white shadow-card' : 'bg-white text-primary-500 hover:bg-primary-50 border border-primary-100'}`}
             >
               {p.label}
