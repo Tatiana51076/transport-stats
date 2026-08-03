@@ -125,6 +125,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
   const [dateTo, setDateTo] = useState('');
   const [records, setRecords] = useState<RecordWithRefs[]>([]);
   const [loading, setLoading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
     if (!carId && !dateFrom && !dateTo) { setRecords([]); return; }
@@ -137,7 +138,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
     const { data, error } = await q;
     if (!error) setRecords((data as RecordWithRefs[]) || []);
     setLoading(false);
-  }, [carId, dateFrom, dateTo]);
+  }, [carId, dateFrom, dateTo, reloadKey]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -168,6 +169,9 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
             Сбросить
           </button>
         )}
+        <button onClick={() => setReloadKey((k) => k + 1)} className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 mb-1">
+          Обновить
+        </button>
       </div>
 
       {loading ? (
