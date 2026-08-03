@@ -37,6 +37,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [totalAll, setTotalAll] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -52,7 +53,16 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     setLoading(false);
   }, [tab, dateFrom, dateTo]);
 
+  const loadTotalAll = useCallback(async () => {
+    let q = supabase.from('expenses').select('amount');
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    const { data } = await q;
+    setTotalAll((data as { amount: number }[])?.reduce((s, e) => s + Number(e.amount), 0) || 0);
+  }, [dateFrom, dateTo]);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadTotalAll(); }, [loadTotalAll]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -102,6 +112,10 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
             Сбросить
           </button>
         )}
+        <div className="ml-auto flex items-center gap-2 rounded-xl bg-accent-50 px-4 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-accent-500">Все расходы за период</span>
+          <span className="text-base font-bold text-accent-700">{formatRub(totalAll)}</span>
+        </div>
       </div>
 
       <AddExpenseForm category={tab} cars={cars} drivers={drivers} onSaved={load} notify={notify} />
