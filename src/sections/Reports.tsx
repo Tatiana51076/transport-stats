@@ -91,7 +91,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     let filteredExpenses = (expRows as ExpenseWithCar[]) || [];
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
-      filteredExpenses = filteredExpenses.filter((e) => !e.car_id || !personalCarIds.includes(e.car_id));
+      filteredExpenses = filteredExpenses.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
     }
     setExpenses(filteredExpenses);
 

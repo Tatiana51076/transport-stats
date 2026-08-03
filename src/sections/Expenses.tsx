@@ -37,7 +37,10 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [carFilter, setCarFilter] = useState('');
+  const [excludePersonal, setExcludePersonal] = useState(false);
   const [totalAll, setTotalAll] = useState(0);
+  const [totalAllNoPersonal, setTotalAllNoPersonal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,19 +50,34 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
       .eq('category', tab);
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
+    if (carFilter) q = q.eq('car_id', carFilter);
     q = q.order('date', { ascending: false });
     const { data, error } = await q;
-    if (!error) setExpenses((data as ExpenseWithCar[]) || []);
+    if (!error) {
+      let rows = (data as ExpenseWithCar[]) || [];
+      if (excludePersonal) {
+        const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+        rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
+      }
+      setExpenses(rows);
+    }
     setLoading(false);
-  }, [tab, dateFrom, dateTo]);
+  }, [tab, dateFrom, dateTo, carFilter, excludePersonal, cars]);
 
   const loadTotalAll = useCallback(async () => {
-    let q = supabase.from('expenses').select('amount');
+    let q = supabase.from('expenses').select('amount, personal, car_id');
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
+    if (carFilter) q = q.eq('car_id', carFilter);
     const { data } = await q;
-    setTotalAll((data as { amount: number }[])?.reduce((s, e) => s + Number(e.amount), 0) || 0);
-  }, [dateFrom, dateTo]);
+    const rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+    const all = rows.reduce((s, e) => s + Number(e.amount), 0);
+    setTotalAll(all);
+    const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+    const noPersonal = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)))
+      .reduce((s, e) => s + Number(e.amount), 0);
+    setTotalAllNoPersonal(noPersonal);
+  }, [dateFrom, dateTo, carFilter, cars]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadTotalAll(); }, [loadTotalAll]);
@@ -107,14 +125,31 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
           <label className="text-xs font-semibold text-primary-500">По</label>
           <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         </div>
-        {(dateFrom || dateTo) && (
-          <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-primary-500">Автомобиль</label>
+          <select className="input-base py-1.5 px-2 text-xs" value={carFilter} onChange={(e) => setCarFilter(e.target.value)}>
+            <option value="">Все автомобили</option>
+            {cars.map((c) => <option key={c.id} value={c.id}>{c.plate_number}{c.personal ? ' (личный)' : ''}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+          <span className="text-xs text-primary-500">Исключить личные</span>
+        </label>
+        {(dateFrom || dateTo || carFilter || excludePersonal) && (
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setCarFilter(''); setExcludePersonal(false); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
             Сбросить
           </button>
         )}
-        <div className="ml-auto flex items-center gap-2 rounded-xl bg-accent-50 px-4 py-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-accent-500">Все расходы за период</span>
-          <span className="text-base font-bold text-accent-700">{formatRub(totalAll)}</span>
+        <div className="flex flex-wrap items-center gap-3 ml-auto">
+          <div className="flex items-center gap-2 rounded-xl bg-primary-50 px-4 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-primary-500">Все</span>
+            <span className="text-base font-bold text-primary-700">{formatRub(totalAll)}</span>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl bg-accent-50 px-4 py-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-accent-500">Без личных</span>
+            <span className="text-base font-bold text-accent-700">{formatRub(totalAllNoPersonal)}</span>
+          </div>
         </div>
       </div>
 
@@ -215,6 +250,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
   const [liters, setLiters] = useState('');
   const [amountToPay, setAmountToPay] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [personal, setPersonal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -252,6 +288,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
       amount_to_pay: category === 'taxes' && amountToPay ? parseFloat(amountToPay) : null,
       due_date: category === 'taxes' && dueDate ? dueDate : null,
       liters: liters ? parseFloat(liters) : null,
+      personal,
     });
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -304,6 +341,14 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
             </Field>
           </div>
         )}
+
+        <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50 no-print">
+          <input type="checkbox" checked={personal} onChange={(e) => setPersonal(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
+          <div>
+            <p className="text-sm font-medium text-primary-800">Личный автомобиль</p>
+            <p className="text-xs text-primary-400">Расход не будет учитываться в общих отчётах</p>
+          </div>
+        </label>
 
         {err && <p className="text-sm text-error-600">{err}</p>}
 
