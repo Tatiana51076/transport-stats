@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileText, Plus, CheckCircle2, XCircle, AlertCircle, Pencil } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { InvoiceWithRefs } from '@/lib/types';
@@ -16,6 +16,28 @@ interface InvoicesSectionProps {
   notify: ToastFn;
 }
 
+type PeriodKey = 'all' | 'week' | 'month' | 'halfyear' | 'year' | 'custom';
+
+const PERIODS: { key: PeriodKey; label: string }[] = [
+  { key: 'all', label: 'Все' },
+  { key: 'week', label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'halfyear', label: 'Полгода' },
+  { key: 'year', label: 'Год' },
+  { key: 'custom', label: 'Произвольный' },
+];
+
+function rangeFor(p: PeriodKey): { from: string; to: string } {
+  const now = new Date();
+  const to = new Date(now);
+  const from = new Date(now);
+  if (p === 'week') from.setDate(now.getDate() - 7);
+  else if (p === 'month') from.setMonth(now.getMonth() - 1);
+  else if (p === 'halfyear') from.setMonth(now.getMonth() - 6);
+  else if (p === 'year') from.setFullYear(now.getFullYear() - 1);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
 export function InvoicesSection({ contractors, cars, drivers, notify }: InvoicesSectionProps) {
   const [invoices, setInvoices] = useState<InvoiceWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,15 +45,34 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
   const [editInvoice, setEditInvoice] = useState<InvoiceWithRefs | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<InvoiceWithRefs | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [period, setPeriod] = useState<PeriodKey>('all');
+  const [contractorFilter, setContractorFilter] = useState('');
+  const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
+  const [customTo, setCustomTo] = useState(rangeFor('month').to);
+
+  const { from, to } = useMemo(() => {
+    if (period === 'custom') return { from: customFrom, to: customTo };
+    if (period === 'all') return { from: '', to: '' };
+    return rangeFor(period);
+  }, [period, customFrom, customTo]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('invoices').select('*, cars(id,plate_number), drivers(id,full_name)').order('date', { ascending: false });
+    let q = supabase.from('invoices').select('*, cars(id,plate_number), drivers(id,full_name)');
+    if (from) q = q.gte('date', from);
+    if (to) q = q.lte('date', to);
+    q = q.order('date', { ascending: false });
+    const { data, error } = await q;
     if (!error) setInvoices((data as InvoiceWithRefs[]) || []);
     setLoading(false);
-  }, []);
+  }, [from, to]);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredInvoices = useMemo(() => {
+    if (!contractorFilter) return invoices;
+    return invoices.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
+  }, [invoices, contractorFilter, contractors]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -48,8 +89,8 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
     if (!error) load();
   };
 
-  const totalAmount = invoices.reduce((s, i) => s + Number(i.amount), 0);
-  const totalPaid = invoices.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
+  const totalAmount = filteredInvoices.reduce((s, i) => s + Number(i.amount), 0);
+  const totalPaid = filteredInvoices.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
   const totalUnpaid = totalAmount - totalPaid;
 
   return (
@@ -66,6 +107,32 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
         }
       />
 
+      <div className="card-base p-4 no-print">
+        <div className="flex flex-wrap gap-2 mb-3">
+          {PERIODS.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => setPeriod(p.key)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === p.key ? 'bg-accent-600 text-white shadow-card' : 'bg-white text-primary-500 border border-primary-100 hover:bg-primary-50'}`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {period === 'custom' && (
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <div><label className="label-base">С</label><input type="date" className="input-base" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></div>
+            <div><label className="label-base">По</label><input type="date" className="input-base" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></div>
+          </div>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2 max-w-md">
+          <div>
+            <label className="label-base">Контрагент</label>
+            <Select value={contractorFilter} onChange={setContractorFilter} options={contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Все контрагенты" />
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card-base p-4">
           <p className="text-xs font-semibold uppercase text-primary-400">Всего выставлено</p>
@@ -81,12 +148,12 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
         </div>
       </div>
 
-      {invoices.length > 0 && (
+      {filteredInvoices.length > 0 && (
         <div className="card-base p-5">
           <h3 className="mb-3 text-sm font-bold text-primary-900">Разбивка по контрагентам</h3>
           <div className="divide-y divide-primary-50">
-            {Array.from(new Set(invoices.map((i) => i.contractor_name))).map((name) => {
-              const invs = invoices.filter((i) => i.contractor_name === name);
+            {Array.from(new Set(filteredInvoices.map((i) => i.contractor_name))).map((name) => {
+              const invs = filteredInvoices.filter((i) => i.contractor_name === name);
               const total = invs.reduce((s, i) => s + Number(i.amount), 0);
               const paid = invs.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
               const unpaid = total - paid;
@@ -111,7 +178,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
 
       {loading ? (
         <LoadingState />
-      ) : invoices.length === 0 ? (
+      ) : filteredInvoices.length === 0 ? (
         <EmptyState title="Счетов пока нет" description="Нажмите «Выставить счёт», чтобы создать первый" />
       ) : (
         <div className="card-base overflow-hidden">
@@ -131,7 +198,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-50">
-                {invoices.map((inv) => {
+                {filteredInvoices.map((inv) => {
                   const paidAmount = Number(inv.paid ? inv.amount : (inv.paid_amount || 0));
                   const remaining = Number(inv.amount) - paidAmount;
                   const isPartial = !inv.paid && Number(inv.paid_amount) > 0 && Number(inv.paid_amount) < Number(inv.amount);
