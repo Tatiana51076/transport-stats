@@ -109,7 +109,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const pallets = data.reduce((s, r) => s + r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0), 0);
     const expTotal = expenses.reduce((s, e) => s + Number(e.amount), 0);
     const invTotal = invoices.reduce((s, i) => s + Number(i.amount), 0);
-    const invPaid = invoices.filter((i) => i.paid).reduce((s, i) => s + Number(i.amount), 0);
+    const invPaid = invoices.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
     const invUnpaid = invTotal - invPaid;
     const profit = revenue - expTotal;
     const realProfit = invPaid - expTotal;
@@ -170,8 +170,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     if (totals.invTotal > 0) {
       tables.push({
         title: `Счета (${periodStr})`,
-        headers: ['Дата', 'Контрагент', 'Сумма', 'Статус'],
-        rows: invoices.map((i) => [formatDate(i.date), i.contractor_name, formatRub(i.amount), i.paid ? 'Оплачен' : 'Не оплачен']),
+        headers: ['Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток', 'Статус'],
+        rows: invoices.map((i) => [
+          formatDate(i.date), i.contractor_name, formatRub(i.amount),
+          formatRub(i.paid ? i.amount : (i.paid_amount || 0)),
+          formatRub(Number(i.amount) - Number(i.paid ? i.amount : (i.paid_amount || 0))),
+          i.paid ? 'Оплачен' : Number(i.paid_amount) > 0 ? 'Частично' : 'Не оплачен',
+        ]),
       });
     }
 

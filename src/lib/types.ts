@@ -81,6 +81,7 @@ export interface Invoice {
   driver_id: string | null;
   amount: number;
   paid: boolean;
+  paid_amount: number;
   date: string;
   created_at: string;
 }
