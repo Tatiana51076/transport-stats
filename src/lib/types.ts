@@ -82,6 +82,7 @@ export interface Invoice {
   amount: number;
   paid: boolean;
   paid_amount: number;
+  personal: boolean;
   date: string;
   created_at: string;
 }

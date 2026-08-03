@@ -266,6 +266,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
   const [fullyPaid, setFullyPaid] = useState(false);
   const [partial, setPartial] = useState(false);
   const [paidAmount, setPaidAmount] = useState('');
+  const [personal, setPersonal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -286,6 +287,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
       amount: amt,
       paid: fullyPaid,
       paid_amount: fullyPaid ? amt : paidVal,
+      personal,
       date,
     });
     setSaving(false);
@@ -314,6 +316,14 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />
         </Field>
+
+        <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50 no-print">
+          <input type="checkbox" checked={personal} onChange={(e) => setPersonal(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
+          <div>
+            <p className="text-sm font-medium text-primary-800">Личный автомобиль</p>
+            <p className="text-xs text-primary-400">Счёт не будет учитываться в общих отчётах</p>
+          </div>
+        </label>
 
         <div>
           <p className="label-base">Статус оплаты</p>
@@ -356,6 +366,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
   const [partial, setPartial] = useState(!invoice.paid && Number(invoice.paid_amount) > 0 && Number(invoice.paid_amount) < Number(invoice.amount));
   const [fullyPaid, setFullyPaid] = useState(!!invoice.paid);
   const [paidAmount, setPaidAmount] = useState(String(invoice.paid_amount || 0));
+  const [personal, setPersonal] = useState(!!invoice.personal);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -375,6 +386,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
       amount: amt,
       paid: fullyPaid,
       paid_amount: fullyPaid ? amt : paidVal,
+      personal,
     }).eq('id', invoice.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -402,6 +414,14 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />
         </Field>
+
+        <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50 no-print">
+          <input type="checkbox" checked={personal} onChange={(e) => setPersonal(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
+          <div>
+            <p className="text-sm font-medium text-primary-800">Личный автомобиль</p>
+            <p className="text-xs text-primary-400">Счёт не будет учитываться в общих отчётах</p>
+          </div>
+        </label>
 
         <div>
           <p className="label-base">Статус оплаты</p>
