@@ -363,9 +363,21 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
             <h3 className="mb-4 text-lg font-bold text-primary-900">Финансовая сводка</h3>
 
             <div className="grid gap-4 sm:grid-cols-3 mb-6">
-              <StatCard label="Доходы (выручка)" value={formatRub(totals.revenue)} />
+              <StatCard label="Сумма рейсов" value={formatRub(totals.revenue)} accent={totals.revenue === totals.invTotal ? 'text-success-600 bg-success-50' : 'text-warning-600 bg-warning-50'} />
+              <StatCard label="Выставлено счетов" value={formatRub(totals.invTotal)} />
               <StatCard label="Расходы" value={formatRub(totals.expTotal)} />
-              <StatCard label="Прибыль" value={formatRub(totals.profit)} accent={totals.profit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+            </div>
+
+            {totals.revenue !== totals.invTotal && (
+              <div className="mb-4 rounded-xl bg-warning-50 p-4 text-sm text-warning-700">
+                ⚠️ Сумма рейсов ({formatRub(totals.revenue)}) не совпадает с суммой выставленных счетов ({formatRub(totals.invTotal)}). Проверьте, все ли счета и рейсы введены.
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-3 mb-6">
+              <StatCard label="Оплачено (по факту)" value={formatRub(totals.invPaid)} accent="text-success-600 bg-success-50" />
+              <StatCard label="Прибыль (оплачено − расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+              <StatCard label="Прогноз (все счета − расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
             </div>
 
             {totals.invTotal > 0 && (
