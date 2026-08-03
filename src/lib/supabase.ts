@@ -27,7 +27,8 @@ function buildQuery(table: string) {
       let url = `${API}/${table}?select=${encodeURIComponent(selectQuery)}`;
       if (params.length) url += '&' + params.join('&');
       if (limitNum) url += `&limit=${limitNum}`;
-      fetch(url, { headers: { 'Accept': 'application/json' } })
+      url += `&_ts=${Date.now()}`;
+      fetch(url, { headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' } })
         .then(async (res) => {
           if (!res.ok) { const t = await res.text(); resolve({ data: null, error: new Error(t) }); return; }
           let data = await res.json();
