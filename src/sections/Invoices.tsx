@@ -263,6 +263,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
   const [carId, setCarId] = useState('');
   const [driverId, setDriverId] = useState('');
   const [amount, setAmount] = useState('');
+  const [fullyPaid, setFullyPaid] = useState(false);
   const [partial, setPartial] = useState(false);
   const [paidAmount, setPaidAmount] = useState('');
   const [saving, setSaving] = useState(false);
@@ -283,8 +284,8 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
       car_id: carId || null,
       driver_id: driverId || null,
       amount: amt,
-      paid: !partial && paidVal >= amt,
-      paid_amount: paidVal,
+      paid: fullyPaid,
+      paid_amount: fullyPaid ? amt : paidVal,
       date,
     });
     setSaving(false);
@@ -313,14 +314,22 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />
         </Field>
-        <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50">
-          <input type="checkbox" checked={partial} onChange={(e) => setPartial(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
-          <div>
-            <p className="text-sm font-medium text-primary-800">Счёт оплачен частично</p>
-            <p className="text-xs text-primary-400">Отметьте, если оплачена только часть суммы</p>
+
+        <div>
+          <p className="label-base">Статус оплаты</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => { setFullyPaid(false); setPartial(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${!fullyPaid && !partial ? 'bg-error-50 text-error-700 border-error-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Не оплачен
+            </button>
+            <button type="button" onClick={() => { setFullyPaid(true); setPartial(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${fullyPaid ? 'bg-success-50 text-success-700 border-success-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Оплачен
+            </button>
+            <button type="button" onClick={() => { setPartial(true); setFullyPaid(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${partial && !fullyPaid ? 'bg-warning-50 text-warning-700 border-warning-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Частично
+            </button>
           </div>
-        </label>
-        {partial && (
+        </div>
+        {partial && !fullyPaid && (
           <Field label="Оплачено по факту, ₽">
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
           </Field>
@@ -345,6 +354,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
   const [driverId, setDriverId] = useState(invoice.driver_id || '');
   const [amount, setAmount] = useState(String(invoice.amount));
   const [partial, setPartial] = useState(!invoice.paid && Number(invoice.paid_amount) > 0 && Number(invoice.paid_amount) < Number(invoice.amount));
+  const [fullyPaid, setFullyPaid] = useState(!!invoice.paid);
   const [paidAmount, setPaidAmount] = useState(String(invoice.paid_amount || 0));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -363,8 +373,8 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
       car_id: carId || null,
       driver_id: driverId || null,
       amount: amt,
-      paid: !partial && paidVal >= amt,
-      paid_amount: paidVal,
+      paid: fullyPaid,
+      paid_amount: fullyPaid ? amt : paidVal,
     }).eq('id', invoice.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -392,14 +402,22 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />
         </Field>
-        <label className="flex items-center gap-3 cursor-pointer rounded-xl border border-primary-200 bg-white p-3 transition hover:bg-primary-50">
-          <input type="checkbox" checked={partial} onChange={(e) => setPartial(e.target.checked)} className="h-5 w-5 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
-          <div>
-            <p className="text-sm font-medium text-primary-800">Счёт оплачен частично</p>
-            <p className="text-xs text-primary-400">Отметьте, если оплачена только часть суммы</p>
+
+        <div>
+          <p className="label-base">Статус оплаты</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => { setFullyPaid(false); setPartial(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${!fullyPaid && !partial ? 'bg-error-50 text-error-700 border-error-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Не оплачен
+            </button>
+            <button type="button" onClick={() => { setFullyPaid(true); setPartial(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${fullyPaid ? 'bg-success-50 text-success-700 border-success-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Оплачен
+            </button>
+            <button type="button" onClick={() => { setPartial(true); setFullyPaid(false); }} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${partial && !fullyPaid ? 'bg-warning-50 text-warning-700 border-warning-200' : 'bg-white text-primary-500 border-primary-200 hover:bg-primary-50'}`}>
+              Частично
+            </button>
           </div>
-        </label>
-        {partial && (
+        </div>
+        {partial && !fullyPaid && (
           <Field label="Оплачено по факту, ₽">
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
           </Field>
