@@ -157,7 +157,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       rows: data.map((r) => [
         r.contractors?.name || '—', formatDate(r.date), r.trips?.name || '—',
         r.drivers?.full_name || '—', r.cars?.plate_number || '—',
-        `{r.pallets}${r.pallets2 > 0 ? `+${r.pallets2}` : ''}${r.pallets3 > 0 ? `+${r.pallets3}` : ''}`, formatRub(r.cost),
+        `${r.pallets}${r.pallets2 > 0 ? `+${r.pallets2}` : ''}${r.pallets3 > 0 ? `+${r.pallets3}` : ''}`, String(Number(r.cost).toFixed(2).replace('.', ',')),
       ]),
     });
 
@@ -165,7 +165,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       title: `Итого доходы`,
       headers: ['Показатель', 'Значение'],
       rows: [
-        ['Выручка', formatRub(totals.revenue)],
+        ['Выручка', String(Number(totals.revenue).toFixed(2).replace('.', ','))],
         ['Кол-во рейсов', String(totals.trips)],
         ['Всего паллет', String(totals.pallets)],
       ],
@@ -176,9 +176,10 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         title: `Счета (${periodStr})`,
         headers: ['Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток', 'Статус'],
         rows: invoices.map((i) => [
-          formatDate(i.date), i.contractor_name, formatRub(i.amount),
-          formatRub(i.paid ? i.amount : (i.paid_amount || 0)),
-          formatRub(Number(i.amount) - Number(i.paid ? i.amount : (i.paid_amount || 0))),
+          formatDate(i.date), i.contractor_name,
+          String(Number(i.amount).toFixed(2).replace('.', ',')),
+          String(Number(i.paid ? i.amount : (i.paid_amount || 0)).toFixed(2).replace('.', ',')),
+          String(Number(Number(i.amount) - Number(i.paid ? i.amount : (i.paid_amount || 0))).toFixed(2).replace('.', ',')),
           i.paid ? 'Оплачен' : Number(i.paid_amount) > 0 ? 'Частично' : 'Не оплачен',
         ]),
       });
@@ -194,13 +195,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
           e.cars?.plate_number || '—',
           e.employee_name || '—',
           e.description || '—',
-          formatRub(e.amount),
+          String(Number(e.amount).toFixed(2).replace('.', ',')),
         ]),
       });
       tables.push({
         title: `Расходы по категориям (${periodStr})`,
         headers: ['Категория', 'Сумма'],
-        rows: totals.expByCategory.map((c) => [c.label, formatRub(c.amount)]),
+        rows: totals.expByCategory.map((c) => [c.label, String(Number(c.amount).toFixed(2).replace('.', ','))]),
       });
     }
 
@@ -208,14 +209,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       title: 'Финансовый итог',
       headers: ['Показатель', 'Значение'],
       rows: [
-        ['Доходы (выручка)', formatRub(totals.revenue)],
-        ['Выставлено счетов', formatRub(totals.invTotal)],
-        ['Оплачено счетов', formatRub(totals.invPaid)],
-        ['Не оплачено счетов', formatRub(totals.invUnpaid)],
-        ['Расходы', formatRub(totals.expTotal)],
-        ['Прибыль (доходы - расходы)', formatRub(totals.profit)],
-        ['Реальная прибыль (оплачено - расходы)', formatRub(totals.realProfit)],
-        ['Прогноз прибыли (все счета - расходы)', formatRub(totals.forecastProfit)],
+        ['Доходы (выручка)', String(Number(totals.revenue).toFixed(2).replace('.', ','))],
+        ['Выставлено счетов', String(Number(totals.invTotal).toFixed(2).replace('.', ','))],
+        ['Оплачено счетов', String(Number(totals.invPaid).toFixed(2).replace('.', ','))],
+        ['Не оплачено счетов', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
+        ['Расходы', String(Number(totals.expTotal).toFixed(2).replace('.', ','))],
+        ['Прибыль (доходы - расходы)', String(Number(totals.profit).toFixed(2).replace('.', ','))],
+        ['Реальная прибыль (оплачено - расходы)', String(Number(totals.realProfit).toFixed(2).replace('.', ','))],
+        ['Прогноз прибыли (все счета - расходы)', String(Number(totals.forecastProfit).toFixed(2).replace('.', ','))],
       ],
     });
 

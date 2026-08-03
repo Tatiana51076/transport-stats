@@ -29,17 +29,27 @@ export function toDateInput(iso: string | null | undefined): string {
 }
 
 export function exportToExcel(filename: string, tables: { title: string; headers: string[]; rows: string[][] }[]) {
-  let html = '<html><head><meta charset="UTF-8"><style>td,th{border:1px solid #ccc;padding:6px 10px;font:12px Arial}th{background:#075A64;color:#fff}h2{margin:20px 0 8px;font:bold 16px Arial;color:#075A64}</style></head><body>';
+  // Build CSV (semicolon separator for RU Excel locale)
+  let csv = '\uFEFF'; // BOM for UTF-8
+  const escape = (v: string) => {
+    const s = String(v);
+    if (/^-?\d+([.,]\d+)?$/.test(s)) return s; // numeric -> no quotes
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+
   for (const t of tables) {
-    html += `<h2>${t.title}</h2><table><tr>${t.headers.map((h) => `<th>${h}</th>`).join('')}</tr>`;
-    html += t.rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('');
-    html += '</table>';
+    csv += `"${t.title}"\n`;
+    csv += t.headers.map(escape).join(';') + '\n';
+    for (const r of t.rows) {
+      csv += r.map(escape).join(';') + '\n';
+    }
+    csv += '\n';
   }
-  html += '</body></html>';
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `${filename}.xls`;
+  a.href = url; a.download = `${filename}.csv`;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
