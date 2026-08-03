@@ -64,8 +64,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
   };
 
-  const expenseFrom = useMemo(() => from ? from.slice(0, 7) + '-01' : '', [from]);
-  const expenseTo = useMemo(() => to ? to.slice(0, 7) + '-' + new Date(Number(to.slice(0, 4)), Number(to.slice(5, 7)), 0).getDate().toString().padStart(2, '0') : '', [to]);
+  const expenseFrom = useMemo(() => from, [from]);
+  const expenseTo = useMemo(() => to, [to]);
 
   const buildReport = async () => {
     if (!from || !to) { notify('Укажите период', 'error'); return; }
