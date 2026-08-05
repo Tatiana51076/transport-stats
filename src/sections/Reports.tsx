@@ -18,6 +18,13 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'custom', label: 'Произвольный' },
 ];
 
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function rangeFor(period: PeriodKey): { from: string; to: string } {
   const now = new Date();
   const to = new Date(now);
@@ -26,7 +33,7 @@ function rangeFor(period: PeriodKey): { from: string; to: string } {
   else if (period === 'month') from.setMonth(now.getMonth() - 1);
   else if (period === 'halfyear') from.setMonth(now.getMonth() - 6);
   else if (period === 'year') from.setFullYear(now.getFullYear() - 1);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: toDateStr(from), to: toDateStr(to) };
 }
 
 interface ReportsProps {
@@ -111,7 +118,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const fromDate = new Date(from);
       const isStartOfMonth = Number(from.slice(8, 10)) === 1;
       const prevMonthEnd = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0);
-      const prevMonthEndStr = prevMonthEnd.toISOString().slice(0, 10);
+      const prevMonthEndStr = toDateStr(prevMonthEnd);
       if (!isStartOfMonth && from <= prevMonthEndStr) {
         const { data: prevRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
         const prevList = (prevRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
@@ -131,9 +138,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const isEndOfMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate() === Number(to.slice(8, 10));
       const nextDay = new Date(endDate);
       nextDay.setDate(endDate.getDate() + 1);
-      const nextDayStr = nextDay.toISOString().slice(0, 10);
+      const nextDayStr = toDateStr(nextDay);
       const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
-      const lastDayStr = lastDay.toISOString().slice(0, 10);
+      const lastDayStr = toDateStr(lastDay);
       if (!isEndOfMonth && nextDayStr <= lastDayStr) {
         const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
         const extraList = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
