@@ -296,6 +296,135 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     notify('Отчёт скачан', 'success');
   };
 
+  const exportPartnerPDF = () => {
+    const periodStr = `${formatDate(from)} — ${formatDate(to)}`;
+    const todayStr = new Date().toLocaleDateString('ru-RU');
+    const money = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+    const isProfit = totals.distributableProfit >= 0;
+    const sign = (v: number) => (v >= 0 ? '+' : '−') + money(Math.abs(v));
+
+    const html = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Отчёт о прибыли — GlobalTruck</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #0d3138; background: #fff; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0C7281; padding-bottom: 14px; margin-bottom: 24px; }
+  .logo { font-size: 26px; font-weight: 800; color: #0C7281; letter-spacing: 0.5px; }
+  .logo span { color: #74364D; }
+  .doc-title { font-size: 15px; font-weight: 600; color: #4aa3ad; margin-top: 4px; }
+  .meta { text-align: right; font-size: 12px; color: #064851; line-height: 1.6; }
+  h1 { font-size: 22px; color: #0C7281; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #5a7a80; margin-bottom: 22px; }
+  .grid { display: flex; gap: 12px; margin-bottom: 14px; }
+  .card { flex: 1; border: 1px solid #d9eef0; border-radius: 10px; padding: 12px 14px; background: #f0f9fa; }
+  .card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: #4aa3ad; font-weight: 700; margin-bottom: 6px; }
+  .card .val { font-size: 17px; font-weight: 700; color: #0d3138; }
+  .calc { border: 1px solid #d9eef0; border-left: 4px solid #0C7281; border-radius: 8px; background: #f7fbfc; padding: 12px 14px; margin-bottom: 16px; }
+  .calc .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: #064851; font-weight: 700; margin-bottom: 6px; }
+  .calc .formula { font-size: 13px; color: #064851; line-height: 1.7; }
+  .calc .formula b { color: #0C7281; }
+  .result { border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; text-align: center; }
+  .result.pos { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; }
+  .result.neg { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 2px solid #dc2626; }
+  .result .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; margin-bottom: 6px; }
+  .result.pos .lbl { color: #15803d; }
+  .result.neg .lbl { color: #b91c1c; }
+  .result .val { font-size: 30px; font-weight: 800; }
+  .result.pos .val { color: #15803d; }
+  .result.neg .val { color: #b91c1c; }
+  .result .note { font-size: 12px; margin-top: 6px; }
+  .result.pos .note { color: #16a34a; }
+  .result.neg .note { color: #dc2626; }
+  .partners { display: flex; gap: 12px; margin-bottom: 22px; }
+  .pcard { flex: 1; border: 1px solid #efd1da; border-radius: 10px; padding: 14px; text-align: center; }
+  .pcard .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: #74364D; font-weight: 700; margin-bottom: 6px; }
+  .pcard .val { font-size: 19px; font-weight: 700; }
+  .pcard.good .val { color: #16a34a; }
+  .pcard.bad .val { color: #dc2626; }
+  .pcard .note { font-size: 11px; color: #5a7a80; margin-top: 4px; }
+  .foot { margin-top: 40px; padding-top: 14px; border-top: 1px solid #d9eef0; }
+  .foot p { font-size: 11px; color: #5a7a80; margin: 0 0 24px; line-height: 1.6; }
+  .sign { display: flex; justify-content: space-between; font-size: 13px; color: #0d3138; }
+  .sign .s { text-align: center; }
+  .sign .line { border-bottom: 1px solid #0d3138; width: 200px; margin-bottom: 6px; }
+  .sign .cap { font-size: 11px; color: #5a7a80; }
+  @media print { body { padding: 0; } .no-print { display: none; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">Global<span>Truck</span></div>
+      <div class="doc-title">Финансовый отчёт для партнёра</div>
+    </div>
+    <div class="meta">
+      Период: <b>${periodStr}</b><br>
+      Дата формирования: ${todayStr}
+    </div>
+  </div>
+
+  <h1>Прибыль для распределения</h1>
+  <div class="sub">Между партнёрами · расчёт по фактически полученным оплатам</div>
+
+  <div class="grid">
+    <div class="card"><div class="lbl">Получено оплат</div><div class="val">${money(totals.invPaid)}</div></div>
+    <div class="card"><div class="lbl">Расходы за период</div><div class="val">${money(totals.expTotal)}</div></div>
+    <div class="card"><div class="lbl">Итоговые расходы</div><div class="val">${money(totals.adjustedExpenses)}</div></div>
+  </div>
+
+  <div class="calc">
+    <div class="lbl">Расчёт итоговых расходов</div>
+    <div class="formula">
+      Расходы за период <b>${money(totals.expTotal)}</b> − расходы предыдущего месяца <b>${money(totals.prevMonthExpenses || 0)}</b>
+      + доп. расходы после периода <b>${money(totals.extraExpenses || 0)}</b> = <b>${money(totals.adjustedExpenses)}</b>
+    </div>
+  </div>
+
+  <div class="result ${isProfit ? 'pos' : 'neg'}">
+    <div class="lbl">Доступно партнёрам</div>
+    <div class="val">${sign(totals.distributableProfit)}</div>
+    <div class="note">${isProfit ? 'Эту сумму реально можно распределить между партнёрами' : 'Сумма отрицательная — делить нечего, расходы превысили доходы'}</div>
+  </div>
+
+  <div class="partners">
+    <div class="pcard ${totals.partnerShare >= 0 ? 'good' : 'bad'}">
+      <div class="lbl">Доля партнёра (50%)</div>
+      <div class="val">${sign(totals.partnerShare)}</div>
+      <div class="note">От суммы «Доступно партнёрам»</div>
+    </div>
+    <div class="pcard good">
+      <div class="lbl">Долги (не оплачено)</div>
+      <div class="val">${money(totals.invUnpaid)}</div>
+      <div class="note">Делить долги нельзя — деньги ещё не поступили</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <p>Расчёт произведён по фактически поступившим оплатам. Личные автомобили исключены из расчёта. Итоговые расходы включают расходы предыдущего месяца и доп. расходы после расчётного периода.</p>
+    <div class="sign">
+      <div class="s"><div class="line"></div><div class="cap">Компания</div></div>
+      <div class="s"><div class="line"></div><div class="cap">Партнёр</div></div>
+      <div class="s"><div class="line"></div><div class="cap">Дата</div></div>
+    </div>
+  </div>
+
+  <div class="no-print" style="text-align:center; margin-top:24px;">
+    <button onclick="window.print()" style="padding:10px 24px; font-size:14px; background:#0C7281; color:#fff; border:none; border-radius:8px; cursor:pointer;">Сохранить в PDF / Печать</button>
+  </div>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=960,height=720');
+    if (!w) { notify('Разрешите всплывающие окна для экспорта PDF', 'error'); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 600);
+  };
+
   return (
     <div className="space-y-8">
       <SectionHeader title="Отчёты" subtitle="Сводка по перевозкам и финансам" />
@@ -355,6 +484,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
             <>
               <button onClick={handleExport} className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
                 <FileDown className="h-4 w-4" /> Excel
+              </button>
+              <button onClick={exportPartnerPDF} className="flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-accent-700">
+                <Printer className="h-4 w-4" /> PDF для партнёра
               </button>
               <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
                 <Printer className="h-4 w-4" /> Печать
