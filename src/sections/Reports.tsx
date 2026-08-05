@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { Printer, FileDown, Download } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { supabase } from '@/lib/supabase';
 import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar, Invoice } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
@@ -298,24 +296,24 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     notify('Отчёт скачан', 'success');
   };
 
-  const exportPartnerPDF = () => {
-    const periodStr = `${formatDate(from)} — ${formatDate(to)}`;
-    const todayStr = new Date().toLocaleDateString('ru-RU');
-    const money = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
-    const isProfit = totals.distributableProfit >= 0;
-    const sign = (v: number) => (v >= 0 ? '+' : '−') + money(Math.abs(v));
+  const exportPartnerPDF = async () => {
+    try {
+      notify('Формируем PDF…', 'info');
+      const [{ jsPDF }, html2canvas] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ]);
 
-    const html = `<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<title>Отчёт о прибыли — GlobalTruck</title>
-<style>
-  @page { size: A4; margin: 18mm; }
+      const periodStr = `${formatDate(from)} — ${formatDate(to)}`;
+      const todayStr = new Date().toLocaleDateString('ru-RU');
+      const money = (v: number) => v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+      const isProfit = totals.distributableProfit >= 0;
+      const sign = (v: number) => (v >= 0 ? '+' : '−') + money(Math.abs(v));
+
+      const css = `
   * { box-sizing: border-box; }
-  html, body { width: 794px; }
   body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #0d3138; background: #fff; }
-  .doc { padding: 28px 32px; }
+  .doc { width: 794px; padding: 28px 32px; }
   .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0C7281; padding-bottom: 14px; margin-bottom: 24px; }
   .logo { font-size: 26px; font-weight: 800; color: #0C7281; letter-spacing: 0.5px; }
   .logo span { color: #74364D; }
@@ -355,10 +353,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   .sign { display: flex; justify-content: space-between; font-size: 13px; color: #0d3138; }
   .sign .s { text-align: center; }
   .sign .line { border-bottom: 1px solid #0d3138; width: 200px; margin-bottom: 6px; }
-  .sign .cap { font-size: 11px; color: #5a7a80; }
-</style>
-</head>
-<body>
+  .sign .cap { font-size: 11px; color: #5a7a80; }`;
+
+      const body = `
   <div class="doc">
     <div class="header">
       <div>
@@ -415,28 +412,16 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         <div class="s"><div class="line"></div><div class="cap">Дата</div></div>
       </div>
     </div>
-  </div>
-</body>
-</html>`;
+  </div>`;
 
-    const renderDoc = document.createElement('iframe');
-    renderDoc.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:none;background:#fff;';
-    document.body.appendChild(renderDoc);
-    renderDoc.contentDocument?.open();
-    renderDoc.contentDocument?.write(html);
-    renderDoc.contentDocument?.close();
+      const holder = document.createElement('div');
+      holder.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;background:#fff;';
+      holder.innerHTML = `<style>${css}</style>${body}`;
+      document.body.appendChild(holder);
 
-    const fileName = `GlobalTruck_прибыль_${from}_${to}.pdf`;
-
-    renderDoc.onload = async () => {
       try {
-        const canvas = await html2canvas(renderDoc.contentDocument!.body, {
-          width: 794,
-          height: renderDoc.contentDocument!.body.scrollHeight,
-          scale: 2,
-          backgroundColor: '#ffffff',
-          logging: false,
-        });
+        await document.fonts.ready;
+        const canvas = await html2canvas.default(holder, { scale: 2, backgroundColor: '#ffffff', logging: false });
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
         const pdfW = 210;
@@ -453,14 +438,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
           pdf.addImage(imgData, 'JPEG', margin, position, pdfW - margin * 2, imgHmm);
           heightLeft -= pdfH - margin * 2;
         }
-        pdf.save(fileName);
+        pdf.save(`GlobalTruck_прибыль_${from}_${to}.pdf`);
         notify('PDF скачан', 'success');
-      } catch (err) {
-        notify('Не удалось сформировать PDF: ' + String(err), 'error');
       } finally {
-        document.body.removeChild(renderDoc);
+        document.body.removeChild(holder);
       }
-    };
+    } catch (err) {
+      notify('Не удалось сформировать PDF: ' + String(err), 'error');
+    }
   };
 
   return (
