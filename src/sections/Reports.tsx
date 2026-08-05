@@ -49,6 +49,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [sortAsc, setSortAsc] = useState(true);
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
@@ -107,6 +108,18 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     setLoaded(true);
   };
 
+  const sortedData = useMemo(() => {
+    return [...data].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }, [data, sortAsc]);
+
+  const sortedExpenses = useMemo(() => {
+    return [...expenses].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }, [expenses, sortAsc]);
+
+  const sortedInvoices = useMemo(() => {
+    return [...invoices].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }, [invoices, sortAsc]);
+
   const totals = useMemo(() => {
     const revenue = data.reduce((s, r) => s + Number(r.cost), 0);
     const trips = data.length;
@@ -154,7 +167,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     tables.push({
       title: `Доходы (${periodStr})`,
       headers: ['Контрагент', 'Дата', 'Рейс', 'Водитель', 'Автомобиль', 'Паллеты', 'Сумма'],
-      rows: data.map((r) => [
+      rows: sortedData.map((r) => [
         r.contractors?.name || '—', formatDate(r.date), r.trips?.name || '—',
         r.drivers?.full_name || '—', r.cars?.plate_number || '—',
         `${r.pallets}${r.pallets2 > 0 ? `+${r.pallets2}` : ''}${r.pallets3 > 0 ? `+${r.pallets3}` : ''}`, String(Number(r.cost).toFixed(2).replace('.', ',')),
@@ -175,7 +188,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       tables.push({
         title: `Счета (${periodStr})`,
         headers: ['Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток', 'Статус'],
-        rows: invoices.map((i) => [
+        rows: sortedInvoices.map((i) => [
           formatDate(i.date), i.contractor_name,
           String(Number(i.amount).toFixed(2).replace('.', ',')),
           String(Number(i.paid ? i.amount : (i.paid_amount || 0)).toFixed(2).replace('.', ',')),
@@ -189,7 +202,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       tables.push({
         title: `Детально по расходам (${periodStr})`,
         headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
-        rows: expenses.map((e) => [
+        rows: sortedExpenses.map((e) => [
           formatDate(e.date),
           EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
           e.cars?.plate_number || '—',
@@ -271,6 +284,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
           <button onClick={buildReport} disabled={loading} className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-primary-700 disabled:opacity-60">
             {loading ? 'Построение…' : 'Построить отчёт'}
           </button>
+          <button
+            onClick={() => setSortAsc(!sortAsc)}
+            className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50"
+            title={sortAsc ? 'Показать новые первыми' : 'Показать старые первыми'}
+          >
+            {sortAsc ? '↑ Сначала старые' : '↓ Сначала новые'}
+          </button>
           <span className="text-xs text-primary-400">Период: {formatDate(from)} — {formatDate(to)}</span>
           {loaded && (data.length > 0 || invoices.length > 0) && (
             <>
@@ -309,7 +329,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary-50">
-                    {data.map((r) => (
+                    {sortedData.map((r) => (
                       <tr key={r.id} className="transition hover:bg-primary-50/40">
                         <td className="px-4 py-3 text-primary-700">{r.contractors?.name || '—'}</td>
                         <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(r.date)}</td>
@@ -342,7 +362,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-primary-50">
-                    {invoices.map((inv) => (
+                    {sortedInvoices.map((inv) => (
                       <tr key={inv.id} className="transition hover:bg-primary-50/40">
                         <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(inv.date)}</td>
                         <td className="px-4 py-3 text-primary-700">{inv.contractor_name}</td>
@@ -426,7 +446,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-primary-50">
-                      {expenses.map((e) => (
+                      {sortedExpenses.map((e) => (
                         <tr key={e.id} className="transition hover:bg-primary-50/40">
                           <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(e.date)}</td>
                           <td className="px-4 py-3 text-primary-600">{EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category}</td>

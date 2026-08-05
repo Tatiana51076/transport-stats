@@ -48,6 +48,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
   const [period, setPeriod] = useState<PeriodKey>('all');
   const [contractorFilter, setContractorFilter] = useState('');
   const [excludePersonal, setExcludePersonal] = useState(false);
+  const [sortAsc, setSortAsc] = useState(false);
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
   const [customTo, setCustomTo] = useState(rangeFor('month').to);
 
@@ -78,8 +79,8 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
     if (excludePersonal) {
       rows = rows.filter((i) => !i.personal);
     }
-    return rows;
-  }, [invoices, contractorFilter, contractors, excludePersonal]);
+    return [...rows].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }, [invoices, contractorFilter, contractors, excludePersonal, sortAsc]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -136,6 +137,15 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
           <div>
             <label className="label-base">Контрагент</label>
             <Select value={contractorFilter} onChange={setContractorFilter} options={contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Все контрагенты" />
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => setSortAsc(!sortAsc)}
+              className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
+              title={sortAsc ? 'Показать новые первыми' : 'Показать старые первыми'}
+            >
+              {sortAsc ? '↑ Сначала старые' : '↓ Сначала новые'}
+            </button>
           </div>
         </div>
         <label className="flex items-center gap-2 cursor-pointer mt-3">
