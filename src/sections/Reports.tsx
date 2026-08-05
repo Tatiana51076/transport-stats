@@ -50,6 +50,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [sortAsc, setSortAsc] = useState(true);
+  const [extraExpenses, setExtraExpenses] = useState('');
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
@@ -132,7 +133,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const realProfit = invPaid - expTotal;
     const forecastProfit = invTotal - expTotal;
     // Прибыль для распределения = реально полученные деньги минус расходы периода
-    const distributableProfit = invPaid - expTotal;
+    const extraExp = parseFloat(extraExpenses) || 0;
+    const distributableProfit = invPaid - expTotal - extraExp;
     const partnerShare = distributableProfit / 2;
 
     const group = (getKey: (r: RecordWithRefs) => { id: string; label: string } | null) => {
@@ -162,7 +164,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       byContractor: group((r) => (r.contractors ? { id: r.contractors.id, label: r.contractors.name } : null)),
       expByCategory,
     };
-  }, [data, expenses, invoices]);
+  }, [data, expenses, invoices, extraExpenses]);
 
   const handleExport = () => {
     const periodStr = `${formatDate(from)}—${formatDate(to)}`;
@@ -420,15 +422,33 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <p className="text-lg font-bold text-primary-900">{formatRub(totals.expTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-accent-500">Доступно партнёрам</p>
-                  <p className={`text-lg font-bold ${totals.distributableProfit >= 0 ? 'text-success-700' : 'text-error-700'}`}>{formatRub(totals.distributableProfit)}</p>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (уже понесены)</p>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="input-base w-full"
+                    value={extraExpenses}
+                    onChange={(e) => setExtraExpenses(e.target.value)}
+                    placeholder="Например: 727463"
+                  />
+                  <p className="mt-1 text-[11px] text-primary-400">Расходы после периода, которые уже съели деньги (напр. 20.07–31.07)</p>
                 </div>
+              </div>
+              <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
+                <p className="text-xs font-semibold uppercase text-primary-500">Доступно партнёрам (честная цифра)</p>
+                <p className={`text-xl font-bold ${totals.distributableProfit >= 0 ? 'text-success-700' : 'text-error-700'}`}>{formatRub(totals.distributableProfit)}</p>
+                <p className="mt-1 text-[11px] text-primary-400">
+                  {totals.distributableProfit >= 0
+                    ? 'Эту сумму реально можно делить'
+                    : 'Сумма отрицательная — делить нечего, расходы превысили доходы'}
+                </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl bg-white p-4 border border-accent-200">
                   <p className="text-xs font-semibold uppercase text-primary-500">Доля партнёра (50%)</p>
-                  <p className="text-xl font-bold text-accent-700">{formatRub(totals.partnerShare)}</p>
-                  <p className="mt-1 text-[11px] text-primary-400">Если сумма отрицательная — делить нечего, расходы превысили доходы</p>
+                  <p className={`text-xl font-bold ${totals.partnerShare >= 0 ? 'text-accent-700' : 'text-error-700'}`}>{formatRub(totals.partnerShare)}</p>
+                  <p className="mt-1 text-[11px] text-primary-400">От суммы «Доступно партнёрам»</p>
                 </div>
                 <div className="rounded-xl bg-white p-4 border border-accent-200">
                   <p className="text-xs font-semibold uppercase text-primary-500">Долги (не оплачено)</p>
