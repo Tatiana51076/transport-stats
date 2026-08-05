@@ -122,6 +122,8 @@ export function DriverRating({ cars, drivers, notify }: DriverRatingProps) {
   }, [records, fines, from, to]);
 
   const maxFineSum = Math.max(...rating.map((r) => r.fineSum), 1);
+  const bestDriver = rating.find((r) => r.fineCount === 0);
+  const worstDriver = rating.length > 0 ? [...rating].sort((a, b) => b.fineCount - a.fineCount || b.fineSum - a.fineSum)[0] : null;
 
   return (
     <div className="space-y-6">
@@ -187,16 +189,16 @@ export function DriverRating({ cars, drivers, notify }: DriverRatingProps) {
         ) : (
           <div className="space-y-3">
             {rating.map((r, i) => {
-              const isTop = i === 0 && r.fineCount === 0;
-              const isBad = r.fineCount >= 3;
+              const isBest = bestDriver?.id === r.id;
+              const isWorst = worstDriver?.id === r.id;
               return (
-                <div key={r.id} className={`rounded-xl border p-3 transition ${isTop ? 'border-success-300 bg-success-50' : isBad ? 'border-error-300 bg-error-50' : 'border-primary-100 bg-white'}`}>
+                <div key={r.id} className={`rounded-xl border p-3 transition ${isBest ? 'border-success-400 bg-success-50 ring-2 ring-success-200' : isWorst ? 'border-error-400 bg-error-50 ring-2 ring-error-200' : 'border-primary-100 bg-white'}`}>
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-primary-900">
                       <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${i === 0 ? 'bg-accent-600 text-white' : 'bg-primary-100 text-primary-600'}`}>{i + 1}</span>
                       <span className="truncate">{r.name}</span>
-                      {r.fineCount >= 3 && <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-error-600 px-2 py-0.5 text-[10px] font-bold text-white"><AlertTriangle className="h-3 w-3" /> Частые нарушения</span>}
-                      {r.fineCount === 0 && <span className="shrink-0 inline-flex items-center rounded-full bg-success-600 px-2 py-0.5 text-[10px] font-bold text-white">Без штрафов</span>}
+                      {isBest && <span className="shrink-0 inline-flex items-center rounded-full bg-success-600 px-2 py-0.5 text-[10px] font-bold text-white">🏆 Лучший — без штрафов</span>}
+                      {isWorst && !isBest && <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-error-600 px-2 py-0.5 text-[10px] font-bold text-white"><AlertTriangle className="h-3 w-3" /> Больше всех штрафов</span>}
                     </span>
                     <span className="shrink-0 text-sm font-bold text-primary-900">{formatRub(r.score)}</span>
                   </div>

@@ -12,6 +12,7 @@ export interface Car {
 export interface Driver {
   id: string;
   full_name: string;
+  birth_date: string | null;
   created_at: string;
 }
 

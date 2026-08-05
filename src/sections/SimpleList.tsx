@@ -5,13 +5,25 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { DeleteButton } from '@/components/DeleteButton';
 import { EmptyState, LoadingState } from '@/components/States';
 import { SectionHeader, Modal, Field, FormActions } from '@/sections/Cars';
+import { formatDate, toDateInput } from '@/lib/format';
 import type { ToastFn } from '@/hooks/useToasts';
 
 interface SimpleItem {
   id: string;
   name?: string;
   full_name?: string;
+  birth_date?: string | null;
   created_at: string;
+}
+
+function daysUntilBirthday(birthDate: string | null | undefined): number | null {
+  if (!birthDate) return null;
+  const bd = new Date(birthDate);
+  if (isNaN(bd.getTime())) return null;
+  const now = new Date();
+  const next = new Date(now.getFullYear(), bd.getMonth(), bd.getDate());
+  if (next < now) next.setFullYear(now.getFullYear() + 1);
+  return Math.ceil((next.getTime() - now.getTime()) / 86400000);
 }
 
 interface SimpleListProps {
@@ -64,16 +76,26 @@ export function SimpleList({ title, subtitle, fieldName, tableName, items, loadi
         <EmptyState title={`Список пуст`} description={`Нажмите «Добавить», чтобы создать первую запись`} />
       ) : (
         <div className="card-base divide-y divide-primary-50 overflow-hidden">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-primary-50/40">
-              <div className="h-2 w-2 shrink-0 rounded-full bg-primary-400" />
+          {items.map((item) => {
+            const days = tableName === 'drivers' ? daysUntilBirthday(item.birth_date) : null;
+            const isBirthdaySoon = days !== null && days <= 3 && days >= 0;
+            const isBirthdayToday = days === 0;
+            return (
+            <div key={item.id} className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-primary-50/40 ${isBirthdayToday ? 'bg-accent-50' : isBirthdaySoon ? 'bg-warning-50' : ''}`}>
+              <div className={`h-2 w-2 shrink-0 rounded-full ${isBirthdaySoon ? 'bg-accent-500 animate-pulse' : 'bg-primary-400'}`} />
               <span className="flex-1 truncate text-sm font-medium text-primary-800">{labelOf(item)}</span>
+              {tableName === 'drivers' && item.birth_date && (
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${isBirthdayToday ? 'bg-accent-600 text-white' : isBirthdaySoon ? 'bg-accent-100 text-accent-700' : 'bg-primary-50 text-primary-400'}`}>
+                  {isBirthdayToday ? '🎂 Сегодня!' : isBirthdaySoon ? `🎂 Через ${days} дн.` : formatDate(item.birth_date)}
+                </span>
+              )}
               <button onClick={() => setEditItem(item)} className="rounded-lg p-1.5 text-primary-400 transition hover:bg-primary-100 hover:text-primary-600" title="Редактировать">
                 <Pencil className="h-4 w-4" />
               </button>
               <DeleteButton onClick={() => setConfirmItem(item)} />
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -128,6 +150,7 @@ interface AddSimpleFormProps {
 
 function AddSimpleForm({ title, fieldLabel, fieldName, tableName, onClose, onSaved, notify }: AddSimpleFormProps) {
   const [value, setValue] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -136,7 +159,7 @@ function AddSimpleForm({ title, fieldLabel, fieldName, tableName, onClose, onSav
     setErr(null);
     if (!value.trim()) { setErr('Поле обязательно для заполнения'); return; }
     setSaving(true);
-    const payload = tableName === 'drivers' ? { full_name: value.trim() } : { name: value.trim() };
+    const payload = tableName === 'drivers' ? { full_name: value.trim(), birth_date: birthDate || null } : { name: value.trim() };
     const { error } = await supabase.from(tableName).insert(payload);
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -150,6 +173,11 @@ function AddSimpleForm({ title, fieldLabel, fieldName, tableName, onClose, onSav
         <Field label={fieldLabel}>
           <input className="input-base" value={value} onChange={(e) => setValue(e.target.value)} placeholder={fieldLabel} autoFocus />
         </Field>
+        {tableName === 'drivers' && (
+          <Field label="Дата рождения">
+            <input type="date" className="input-base" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+          </Field>
+        )}
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
@@ -171,6 +199,7 @@ interface EditSimpleFormProps {
 
 function EditSimpleForm({ title, fieldLabel, fieldName, tableName, item, value: initialValue, onClose, onSaved, notify }: EditSimpleFormProps) {
   const [value, setValue] = useState(initialValue);
+  const [birthDate, setBirthDate] = useState(item.birth_date ? toDateInput(item.birth_date) : '');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -179,7 +208,7 @@ function EditSimpleForm({ title, fieldLabel, fieldName, tableName, item, value: 
     setErr(null);
     if (!value.trim()) { setErr('Поле обязательно для заполнения'); return; }
     setSaving(true);
-    const payload = tableName === 'drivers' ? { full_name: value.trim() } : { name: value.trim() };
+    const payload = tableName === 'drivers' ? { full_name: value.trim(), birth_date: birthDate || null } : { name: value.trim() };
     const { error } = await supabase.from(tableName).update(payload).eq('id', item.id);
     setSaving(false);
     if (error) { setErr(error.message); return; }
@@ -193,6 +222,11 @@ function EditSimpleForm({ title, fieldLabel, fieldName, tableName, item, value: 
         <Field label={fieldLabel}>
           <input className="input-base" value={value} onChange={(e) => setValue(e.target.value)} placeholder={fieldLabel} autoFocus />
         </Field>
+        {tableName === 'drivers' && (
+          <Field label="Дата рождения">
+            <input type="date" className="input-base" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+          </Field>
+        )}
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>

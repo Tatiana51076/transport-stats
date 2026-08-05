@@ -10,6 +10,7 @@ import { ExpensesSection } from '@/sections/Expenses';
 import { InvoicesSection } from '@/sections/Invoices';
 import { Refuels } from '@/sections/Refuels';
 import { DriverRating } from '@/sections/DriverRating';
+import { BirthdayReminder } from '@/components/BirthdayReminder';
 import { AuthPage } from '@/sections/Auth';
 import { parseVoiceInput } from '@/lib/voiceParser';
 import { VoiceInputButton } from '@/components/VoiceInput';
@@ -166,6 +167,7 @@ function App() {
   return (
     <>
       <AppShell active={section} onNavigate={handleNavigate} onLogout={() => { localStorage.removeItem('transport-stats-auth-v2'); setAuthenticated(false); }} toasts={toasts} onDismissToast={dismiss}>
+        <BirthdayReminder drivers={refs.drivers} onDismiss={() => {}} />
         {renderSection()}
       </AppShell>
       <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 no-print" key={globalVoiceKey}>
