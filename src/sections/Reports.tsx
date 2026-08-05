@@ -105,6 +105,32 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
     setInvoices(filteredInvoices);
 
+    // Автоподтяжка доп. расходов: от следующего дня после периода до конца месяца
+    if (to) {
+      const endDate = new Date(to);
+      const nextDay = new Date(endDate);
+      nextDay.setDate(endDate.getDate() + 1);
+      const nextDayStr = nextDay.toISOString().slice(0, 10);
+      const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+      const lastDayStr = lastDay.toISOString().slice(0, 10);
+      if (nextDayStr <= lastDayStr) {
+        let extraQ = supabase.from('expenses').select('amount, personal').gte('date', nextDayStr).lte('date', lastDayStr);
+        if (excludePersonal) {
+          const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+          const { data: extraRows } = await extraQ;
+          const rows = (extraRows as { amount: number; personal: boolean }[]) || [];
+          const sum = rows.filter((e) => !e.personal).reduce((s, e) => s + Number(e.amount), 0);
+          setExtraExpenses(sum > 0 ? String(sum) : '');
+        } else {
+          const { data: extraRows } = await extraQ;
+          const sum = (extraRows as { amount: number }[])?.reduce((s, e) => s + Number(e.amount), 0) || 0;
+          setExtraExpenses(sum > 0 ? String(sum) : '');
+        }
+      } else {
+        setExtraExpenses('');
+      }
+    }
+
     setLoading(false);
     setLoaded(true);
   };
@@ -422,7 +448,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <p className="text-lg font-bold text-primary-900">{formatRub(totals.expTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (уже понесены)</p>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (авто)</p>
                   <input
                     type="number"
                     min="0"
@@ -430,9 +456,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                     className="input-base w-full"
                     value={extraExpenses}
                     onChange={(e) => setExtraExpenses(e.target.value)}
-                    placeholder="Например: 727463"
+                    placeholder="0"
                   />
-                  <p className="mt-1 text-[11px] text-primary-400">Расходы после периода, которые уже съели деньги (напр. 20.07–31.07)</p>
+                  <p className="mt-1 text-[11px] text-primary-400">Авто: с {to ? new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10) : ''} до конца месяца. Можно поправить вручную.</p>
                 </div>
               </div>
               <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
