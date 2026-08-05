@@ -9,6 +9,7 @@ import { Reports } from '@/sections/Reports';
 import { ExpensesSection } from '@/sections/Expenses';
 import { InvoicesSection } from '@/sections/Invoices';
 import { Refuels } from '@/sections/Refuels';
+import { DriverRating } from '@/sections/DriverRating';
 import { AuthPage } from '@/sections/Auth';
 import { parseVoiceInput } from '@/lib/voiceParser';
 import { VoiceInputButton } from '@/components/VoiceInput';
@@ -140,6 +141,9 @@ function App() {
     }
     if (section === 'refuels') {
       return <Refuels cars={refs.cars} drivers={refs.drivers} notify={notify} />;
+    }
+    if (section === 'rating') {
+      return <DriverRating cars={refs.cars} drivers={refs.drivers} notify={notify} />;
     }
     if (section === 'reports') {
       return <Reports cars={refs.cars} drivers={refs.drivers} contractors={refs.contractors} notify={notify} />;

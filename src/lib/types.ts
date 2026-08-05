@@ -109,4 +109,20 @@ export interface RefuelWithRefs extends Refuel {
   drivers?: { id: string; full_name: string } | null;
 }
 
+export interface Fine {
+  id: string;
+  driver_id: string | null;
+  car_id: string | null;
+  date: string;
+  amount: number;
+  paid: boolean;
+  description: string | null;
+  created_at: string;
+}
+
+export interface FineWithRefs extends Fine {
+  cars?: { id: string; plate_number: string } | null;
+  drivers?: { id: string; full_name: string } | null;
+}
+
 export const MAX_RECORDS_PER_CAR = 999999;
