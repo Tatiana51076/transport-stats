@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { AppShell, type Section } from '@/components/AppShell';
 import { useReferences } from '@/hooks/useReferences';
 import { useToasts } from '@/hooks/useToasts';
-import type { Car } from '@/lib/types';
+import type { Car, Fine } from '@/lib/types';
+import { formatRub, formatDate } from '@/lib/format';
 import { CarList, CarDetail } from '@/sections/Cars';
 import { SimpleList } from '@/sections/SimpleList';
 import { Reports } from '@/sections/Reports';
@@ -18,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [unpaidFines, setUnpaidFines] = useState<Fine[]>([]);
   const [section, setSection] = useState<Section>('cars');
   const [openCar, setOpenCar] = useState<Car | null>(null);
   const [globalVoiceKey, setGlobalVoiceKey] = useState(0);
@@ -34,6 +37,15 @@ function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    supabase.from('fines').select('*, drivers(id,full_name)').eq('paid', false).then(({ data }) => {
+      if (!data) return;
+      const rows = data as (Fine & { drivers?: { full_name: string } | null })[];
+      const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+      setUnpaidFines(sorted.slice(0, 5));
+    });
   }, []);
 
   const voiceLookups = useMemo(() => ({
@@ -168,6 +180,24 @@ function App() {
     <>
       <AppShell active={section} onNavigate={handleNavigate} onLogout={() => { localStorage.removeItem('transport-stats-auth-v2'); setAuthenticated(false); }} toasts={toasts} onDismissToast={dismiss}>
         <BirthdayReminder drivers={refs.drivers} onDismiss={() => {}} />
+        {unpaidFines.length > 0 && (
+          <div className="mb-4 rounded-xl border border-error-200 bg-error-50 p-4 no-print">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-error-600" />
+              <h4 className="text-sm font-bold text-error-700">Неоплаченные штрафы</h4>
+            </div>
+            <div className="divide-y divide-error-100">
+              {unpaidFines.map((f) => (
+                <div key={f.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-primary-800">
+                    {(f as any).drivers?.full_name || '—'} · {formatDate(f.date)}{f.description ? ` · ${f.description}` : ''}
+                  </span>
+                  <span className="shrink-0 font-semibold text-error-700">{formatRub(f.amount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {renderSection()}
       </AppShell>
       <div className="fixed bottom-20 right-4 z-50 lg:bottom-6 no-print" key={globalVoiceKey}>

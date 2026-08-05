@@ -356,6 +356,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
+                      <th className="px-4 py-3 font-semibold">№ счёта</th>
                       <th className="px-4 py-3 font-semibold">Дата</th>
                       <th className="px-4 py-3 font-semibold">Контрагент</th>
                       <th className="px-4 py-3 text-right font-semibold">Сумма</th>
@@ -365,6 +366,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <tbody className="divide-y divide-primary-50">
                     {sortedInvoices.map((inv) => (
                       <tr key={inv.id} className="transition hover:bg-primary-50/40">
+                        <td className="px-4 py-3 font-medium text-primary-800">{inv.invoice_number || '—'}</td>
                         <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(inv.date)}</td>
                         <td className="px-4 py-3 text-primary-700">{inv.contractor_name}</td>
                         <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(inv.amount)}</td>
