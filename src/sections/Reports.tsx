@@ -51,6 +51,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [loaded, setLoaded] = useState(false);
   const [sortAsc, setSortAsc] = useState(true);
   const [extraExpenses, setExtraExpenses] = useState('');
+  const [prevMonthExpenses, setPrevMonthExpenses] = useState('');
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
@@ -105,22 +106,42 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
     setInvoices(filteredInvoices);
 
-    // Автоподтяжка доп. расходов: от следующего дня после периода до конца месяца
+    // Расходы за предыдущий месяц внутри периода (от from до конца месяца from)
+    if (from) {
+      const fromDate = new Date(from);
+      const isStartOfMonth = Number(from.slice(8, 10)) === 1;
+      const prevMonthEnd = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0);
+      const prevMonthEndStr = prevMonthEnd.toISOString().slice(0, 10);
+      if (!isStartOfMonth && from <= prevMonthEndStr) {
+        const { data: prevRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
+        const prevList = (prevRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+        const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
+        const prevSum = prevList
+          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id))))
+          .reduce((s, e) => s + Number(e.amount), 0);
+        setPrevMonthExpenses(prevSum > 0 ? String(prevSum) : '');
+      } else {
+        setPrevMonthExpenses('');
+      }
+    }
+
+    // Доп расходы: от следующего дня после периода до конца месяца окончания
     if (to) {
       const endDate = new Date(to);
+      const isEndOfMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate() === Number(to.slice(8, 10));
       const nextDay = new Date(endDate);
       nextDay.setDate(endDate.getDate() + 1);
       const nextDayStr = nextDay.toISOString().slice(0, 10);
       const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
       const lastDayStr = lastDay.toISOString().slice(0, 10);
-      if (nextDayStr <= lastDayStr) {
+      if (!isEndOfMonth && nextDayStr <= lastDayStr) {
         const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
-        const rows = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-        const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
-        const sum = rows
-          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIds.includes(e.car_id))))
+        const extraList = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+        const personalCarIdsAll2 = cars.filter((c) => c.personal).map((c) => c.id);
+        const extraSum = extraList
+          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll2.includes(e.car_id))))
           .reduce((s, e) => s + Number(e.amount), 0);
-        setExtraExpenses(sum > 0 ? String(sum) : '');
+        setExtraExpenses(extraSum > 0 ? String(extraSum) : '');
       } else {
         setExtraExpenses('');
       }
@@ -153,9 +174,11 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const profit = revenue - expTotal;
     const realProfit = invPaid - expTotal;
     const forecastProfit = invTotal - expTotal;
-    // Прибыль для распределения = реально полученные деньги минус расходы периода
+    // Прибыль для распределения = получено − (расходы периода − расходы пред. месяца + доп расходы)
     const extraExp = parseFloat(extraExpenses) || 0;
-    const distributableProfit = invPaid - expTotal - extraExp;
+    const prevExp = parseFloat(prevMonthExpenses) || 0;
+    const adjustedExpenses = expTotal - prevExp + extraExp;
+    const distributableProfit = invPaid - adjustedExpenses;
     const partnerShare = distributableProfit / 2;
 
     const group = (getKey: (r: RecordWithRefs) => { id: string; label: string } | null) => {
@@ -179,13 +202,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 
     return {
       revenue, trips, pallets, expTotal, profit, invTotal, invPaid, invUnpaid, realProfit, forecastProfit,
-      distributableProfit, partnerShare,
+      distributableProfit, partnerShare, adjustedExpenses,
+      prevMonthExpenses: prevExp, extraExpenses: extraExp,
       byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),
       byCar: group((r) => (r.cars ? { id: r.cars.id, label: [r.cars.plate_number, r.cars.brand, r.cars.model].filter(Boolean).join(' ') } : null)),
       byContractor: group((r) => (r.contractors ? { id: r.contractors.id, label: r.contractors.name } : null)),
       expByCategory,
     };
-  }, [data, expenses, invoices, extraExpenses]);
+  }, [data, expenses, invoices, extraExpenses, prevMonthExpenses]);
 
   const handleExport = () => {
     const periodStr = `${formatDate(from)}—${formatDate(to)}`;
@@ -443,18 +467,39 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <p className="text-lg font-bold text-primary-900">{formatRub(totals.expTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (авто)</p>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Расходы предыдущего месяца</p>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     className="input-base w-full"
-                    value={extraExpenses}
-                    onChange={(e) => setExtraExpenses(e.target.value)}
+                    value={prevMonthExpenses}
+                    onChange={(e) => setPrevMonthExpenses(e.target.value)}
                     placeholder="0"
                   />
-                  <p className="mt-1 text-[11px] text-primary-400">Авто: с {to ? new Date(new Date(to).getTime() + 86400000).toISOString().slice(0, 10) : ''} до конца месяца. Можно поправить вручную.</p>
+                  <p className="mt-1 text-[11px] text-primary-400">Авто: расходы с {from || ''} до конца этого месяца</p>
                 </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (после периода)</p>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="input-base w-full"
+                  value={extraExpenses}
+                  onChange={(e) => setExtraExpenses(e.target.value)}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-[11px] text-primary-400">Авто: расходы после периода до конца месяца</p>
+              </div>
+              <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
+                <p className="text-xs font-semibold uppercase text-primary-500">Расчёт</p>
+                <p className="mt-1 text-sm text-primary-700">
+                  {formatRub(totals.expTotal)} − {formatRub(totals.prevMonthExpenses || 0)} + {formatRub(totals.extraExpenses || 0)} ={' '}
+                  <span className="font-bold text-primary-900">{formatRub(totals.adjustedExpenses)}</span>
+                  <span className="text-[11px] text-primary-400"> (итоговые расходы)</span>
+                </p>
               </div>
               <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
                 <p className="text-xs font-semibold uppercase text-primary-500">Доступно партнёрам (честная цифра)</p>
