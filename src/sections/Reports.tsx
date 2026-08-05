@@ -131,6 +131,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const profit = revenue - expTotal;
     const realProfit = invPaid - expTotal;
     const forecastProfit = invTotal - expTotal;
+    // Прибыль для распределения = реально полученные деньги минус расходы периода
+    const distributableProfit = invPaid - expTotal;
+    const partnerShare = distributableProfit / 2;
 
     const group = (getKey: (r: RecordWithRefs) => { id: string; label: string } | null) => {
       const map = new Map<string, { label: string; count: number; sum: number }>();
@@ -153,6 +156,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 
     return {
       revenue, trips, pallets, expTotal, profit, invTotal, invPaid, invUnpaid, realProfit, forecastProfit,
+      distributableProfit, partnerShare,
       byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),
       byCar: group((r) => (r.cars ? { id: r.cars.id, label: [r.cars.plate_number, r.cars.brand, r.cars.model].filter(Boolean).join(' ') } : null)),
       byContractor: group((r) => (r.contractors ? { id: r.contractors.id, label: r.contractors.name } : null)),
@@ -402,6 +406,36 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
               <StatCard label="Оплачено (по факту)" value={formatRub(totals.invPaid)} accent="text-success-600 bg-success-50" />
               <StatCard label="Прибыль (оплачено − расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
               <StatCard label="Прогноз (все счета − расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+            </div>
+
+            <div className="mb-6 rounded-2xl border-2 border-accent-300 bg-accent-50 p-5">
+              <h4 className="mb-3 text-base font-bold text-accent-800">💰 Прибыль для распределения между партнёрами</h4>
+              <div className="grid gap-4 sm:grid-cols-3 mb-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Получено оплат</p>
+                  <p className="text-lg font-bold text-primary-900">{formatRub(totals.invPaid)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Расходы за период</p>
+                  <p className="text-lg font-bold text-primary-900">{formatRub(totals.expTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Доступно партнёрам</p>
+                  <p className={`text-lg font-bold ${totals.distributableProfit >= 0 ? 'text-success-700' : 'text-error-700'}`}>{formatRub(totals.distributableProfit)}</p>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-white p-4 border border-accent-200">
+                  <p className="text-xs font-semibold uppercase text-primary-500">Доля партнёра (50%)</p>
+                  <p className="text-xl font-bold text-accent-700">{formatRub(totals.partnerShare)}</p>
+                  <p className="mt-1 text-[11px] text-primary-400">Если сумма отрицательная — делить нечего, расходы превысили доходы</p>
+                </div>
+                <div className="rounded-xl bg-white p-4 border border-accent-200">
+                  <p className="text-xs font-semibold uppercase text-primary-500">Долги (не оплачено)</p>
+                  <p className="text-xl font-bold text-warning-600">{formatRub(totals.invUnpaid)}</p>
+                  <p className="mt-1 text-[11px] text-primary-400">Делить долги нельзя — деньги ещё не пришли</p>
+                </div>
+              </div>
             </div>
 
             {totals.invTotal > 0 && (
