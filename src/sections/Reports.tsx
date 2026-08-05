@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Printer, FileDown } from 'lucide-react';
+import { Printer, FileDown, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { supabase } from '@/lib/supabase';
 import type { RecordWithRefs, Car, Driver, Contractor, ExpenseWithCar, Invoice } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
@@ -311,7 +313,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 <style>
   @page { size: A4; margin: 18mm; }
   * { box-sizing: border-box; }
+  html, body { width: 794px; }
   body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; color: #0d3138; background: #fff; }
+  .doc { padding: 28px 32px; }
   .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0C7281; padding-bottom: 14px; margin-bottom: 24px; }
   .logo { font-size: 26px; font-weight: 800; color: #0C7281; letter-spacing: 0.5px; }
   .logo span { color: #74364D; }
@@ -352,77 +356,111 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   .sign .s { text-align: center; }
   .sign .line { border-bottom: 1px solid #0d3138; width: 200px; margin-bottom: 6px; }
   .sign .cap { font-size: 11px; color: #5a7a80; }
-  @media print { body { padding: 0; } .no-print { display: none; } }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div>
-      <div class="logo">Global<span>Truck</span></div>
-      <div class="doc-title">Финансовый отчёт для партнёра</div>
+  <div class="doc">
+    <div class="header">
+      <div>
+        <div class="logo">Global<span>Truck</span></div>
+        <div class="doc-title">Финансовый отчёт для партнёра</div>
+      </div>
+      <div class="meta">
+        Период: <b>${periodStr}</b><br>
+        Дата формирования: ${todayStr}
+      </div>
     </div>
-    <div class="meta">
-      Период: <b>${periodStr}</b><br>
-      Дата формирования: ${todayStr}
+
+    <h1>Прибыль для распределения</h1>
+    <div class="sub">Между партнёрами · расчёт по фактически полученным оплатам</div>
+
+    <div class="grid">
+      <div class="card"><div class="lbl">Получено оплат</div><div class="val">${money(totals.invPaid)}</div></div>
+      <div class="card"><div class="lbl">Расходы за период</div><div class="val">${money(totals.expTotal)}</div></div>
+      <div class="card"><div class="lbl">Итоговые расходы</div><div class="val">${money(totals.adjustedExpenses)}</div></div>
     </div>
-  </div>
 
-  <h1>Прибыль для распределения</h1>
-  <div class="sub">Между партнёрами · расчёт по фактически полученным оплатам</div>
-
-  <div class="grid">
-    <div class="card"><div class="lbl">Получено оплат</div><div class="val">${money(totals.invPaid)}</div></div>
-    <div class="card"><div class="lbl">Расходы за период</div><div class="val">${money(totals.expTotal)}</div></div>
-    <div class="card"><div class="lbl">Итоговые расходы</div><div class="val">${money(totals.adjustedExpenses)}</div></div>
-  </div>
-
-  <div class="calc">
-    <div class="lbl">Расчёт итоговых расходов</div>
-    <div class="formula">
-      Расходы за период <b>${money(totals.expTotal)}</b> − расходы предыдущего месяца <b>${money(totals.prevMonthExpenses || 0)}</b>
-      + доп. расходы после периода <b>${money(totals.extraExpenses || 0)}</b> = <b>${money(totals.adjustedExpenses)}</b>
+    <div class="calc">
+      <div class="lbl">Расчёт итоговых расходов</div>
+      <div class="formula">
+        Расходы за период <b>${money(totals.expTotal)}</b> − расходы предыдущего месяца <b>${money(totals.prevMonthExpenses || 0)}</b>
+        + доп. расходы после периода <b>${money(totals.extraExpenses || 0)}</b> = <b>${money(totals.adjustedExpenses)}</b>
+      </div>
     </div>
-  </div>
 
-  <div class="result ${isProfit ? 'pos' : 'neg'}">
-    <div class="lbl">Доступно партнёрам</div>
-    <div class="val">${sign(totals.distributableProfit)}</div>
-    <div class="note">${isProfit ? 'Эту сумму реально можно распределить между партнёрами' : 'Сумма отрицательная — делить нечего, расходы превысили доходы'}</div>
-  </div>
-
-  <div class="partners">
-    <div class="pcard ${totals.partnerShare >= 0 ? 'good' : 'bad'}">
-      <div class="lbl">Доля партнёра (50%)</div>
-      <div class="val">${sign(totals.partnerShare)}</div>
-      <div class="note">От суммы «Доступно партнёрам»</div>
+    <div class="result ${isProfit ? 'pos' : 'neg'}">
+      <div class="lbl">Доступно партнёрам</div>
+      <div class="val">${sign(totals.distributableProfit)}</div>
+      <div class="note">${isProfit ? 'Эту сумму реально можно распределить между партнёрами' : 'Сумма отрицательная — делить нечего, расходы превысили доходы'}</div>
     </div>
-    <div class="pcard good">
-      <div class="lbl">Долги (не оплачено)</div>
-      <div class="val">${money(totals.invUnpaid)}</div>
-      <div class="note">Делить долги нельзя — деньги ещё не поступили</div>
-    </div>
-  </div>
 
-  <div class="foot">
-    <p>Расчёт произведён по фактически поступившим оплатам. Личные автомобили исключены из расчёта. Итоговые расходы включают расходы предыдущего месяца и доп. расходы после расчётного периода.</p>
-    <div class="sign">
-      <div class="s"><div class="line"></div><div class="cap">Компания</div></div>
-      <div class="s"><div class="line"></div><div class="cap">Партнёр</div></div>
-      <div class="s"><div class="line"></div><div class="cap">Дата</div></div>
+    <div class="partners">
+      <div class="pcard ${totals.partnerShare >= 0 ? 'good' : 'bad'}">
+        <div class="lbl">Доля партнёра (50%)</div>
+        <div class="val">${sign(totals.partnerShare)}</div>
+        <div class="note">От суммы «Доступно партнёрам»</div>
+      </div>
+      <div class="pcard good">
+        <div class="lbl">Долги (не оплачено)</div>
+        <div class="val">${money(totals.invUnpaid)}</div>
+        <div class="note">Делить долги нельзя — деньги ещё не поступили</div>
+      </div>
     </div>
-  </div>
 
-  <div class="no-print" style="text-align:center; margin-top:24px;">
-    <button onclick="window.print()" style="padding:10px 24px; font-size:14px; background:#0C7281; color:#fff; border:none; border-radius:8px; cursor:pointer;">Сохранить в PDF / Печать</button>
+    <div class="foot">
+      <p>Расчёт произведён по фактически поступившим оплатам. Личные автомобили исключены из расчёта. Итоговые расходы включают расходы предыдущего месяца и доп. расходы после расчётного периода.</p>
+      <div class="sign">
+        <div class="s"><div class="line"></div><div class="cap">Компания</div></div>
+        <div class="s"><div class="line"></div><div class="cap">Партнёр</div></div>
+        <div class="s"><div class="line"></div><div class="cap">Дата</div></div>
+      </div>
+    </div>
   </div>
 </body>
 </html>`;
 
-    const w = window.open('', '_blank', 'width=960,height=720');
-    if (!w) { notify('Разрешите всплывающие окна для экспорта PDF', 'error'); return; }
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => w.print(), 600);
+    const renderDoc = document.createElement('iframe');
+    renderDoc.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1200px;border:none;background:#fff;';
+    document.body.appendChild(renderDoc);
+    renderDoc.contentDocument?.open();
+    renderDoc.contentDocument?.write(html);
+    renderDoc.contentDocument?.close();
+
+    const fileName = `GlobalTruck_прибыль_${from}_${to}.pdf`;
+
+    renderDoc.onload = async () => {
+      try {
+        const canvas = await html2canvas(renderDoc.contentDocument!.body, {
+          width: 794,
+          height: renderDoc.contentDocument!.body.scrollHeight,
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+        const pdfW = 210;
+        const pdfH = 297;
+        const margin = 10;
+        const imgHmm = (canvas.height * (pdfW - margin * 2)) / canvas.width;
+        let heightLeft = imgHmm;
+        let position = 0;
+        pdf.addImage(imgData, 'JPEG', margin, margin, pdfW - margin * 2, imgHmm);
+        heightLeft -= pdfH - margin * 2;
+        while (heightLeft > 0) {
+          position = heightLeft - imgHmm;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', margin, position, pdfW - margin * 2, imgHmm);
+          heightLeft -= pdfH - margin * 2;
+        }
+        pdf.save(fileName);
+        notify('PDF скачан', 'success');
+      } catch (err) {
+        notify('Не удалось сформировать PDF: ' + String(err), 'error');
+      } finally {
+        document.body.removeChild(renderDoc);
+      }
+    };
   };
 
   return (
@@ -486,7 +524,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                 <FileDown className="h-4 w-4" /> Excel
               </button>
               <button onClick={exportPartnerPDF} className="flex items-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white shadow-card transition hover:bg-accent-700">
-                <Printer className="h-4 w-4" /> PDF для партнёра
+                <Download className="h-4 w-4" /> Скачать PDF для партнёра
               </button>
               <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-700 transition hover:bg-primary-50">
                 <Printer className="h-4 w-4" /> Печать
