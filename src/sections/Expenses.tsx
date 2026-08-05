@@ -39,6 +39,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [dateTo, setDateTo] = useState('');
   const [carFilter, setCarFilter] = useState('');
   const [excludePersonal, setExcludePersonal] = useState(false);
+  const [sortAsc, setSortAsc] = useState(false);
   const [totalAll, setTotalAll] = useState(0);
   const [totalAllNoPersonal, setTotalAllNoPersonal] = useState(0);
 
@@ -136,6 +137,12 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
           <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
           <span className="text-xs text-primary-500">Исключить личные</span>
         </label>
+        <button
+          onClick={() => setSortAsc(!sortAsc)}
+          className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
+        >
+          {sortAsc ? '↑ Сначала старые' : '↓ Сначала новые'}
+        </button>
         {(dateFrom || dateTo || carFilter || excludePersonal) && (
           <button onClick={() => { setDateFrom(''); setDateTo(''); setCarFilter(''); setExcludePersonal(false); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
             Сбросить
@@ -184,7 +191,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-50">
-                {expenses.map((e) => {
+                {[...expenses].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)).map((e) => {
                   const remaining = e.amount_to_pay ? e.amount_to_pay - e.amount : null;
                   const daysLeft = e.due_date ? Math.ceil((new Date(e.due_date).getTime() - Date.now()) / 86400000) : null;
                   return (

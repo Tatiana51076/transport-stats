@@ -44,6 +44,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
   const [period, setPeriod] = useState<PeriodKey>('month');
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
   const [customTo, setCustomTo] = useState(rangeFor('month').to);
+  const [sortAsc, setSortAsc] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -128,7 +129,13 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
               <p className="text-xs text-primary-400">{formatDate(from)} — {formatDate(to)}</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setSortAsc(!sortAsc)}
+              className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
+            >
+              {sortAsc ? '↑ Сначала старые' : '↓ Сначала новые'}
+            </button>
             {PERIODS.map((p) => (
               <button
                 key={p.key}
@@ -191,7 +198,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-50">
-                {refuels.map((r) => (
+                {[...refuels].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)).map((r) => (
                   <tr key={r.id} className="transition hover:bg-primary-50/40">
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(r.date)}</td>
                     <td className="px-4 py-3 text-primary-600">{r.cars?.plate_number || '—'}</td>

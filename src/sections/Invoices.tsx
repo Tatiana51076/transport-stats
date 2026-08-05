@@ -47,6 +47,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
   const [deleting, setDeleting] = useState(false);
   const [period, setPeriod] = useState<PeriodKey>('all');
   const [contractorFilter, setContractorFilter] = useState('');
+  const [carFilter, setCarFilter] = useState('');
   const [excludePersonal, setExcludePersonal] = useState(false);
   const [sortAsc, setSortAsc] = useState(false);
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
@@ -76,11 +77,14 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
     if (contractorFilter) {
       rows = rows.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
     }
+    if (carFilter) {
+      rows = rows.filter((i) => i.car_id === carFilter);
+    }
     if (excludePersonal) {
       rows = rows.filter((i) => !i.personal);
     }
     return [...rows].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
-  }, [invoices, contractorFilter, contractors, excludePersonal, sortAsc]);
+  }, [invoices, contractorFilter, carFilter, contractors, excludePersonal, sortAsc]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -133,10 +137,14 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
             <div><label className="label-base">По</label><input type="date" className="input-base" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></div>
           </div>
         )}
-        <div className="grid gap-4 sm:grid-cols-2 max-w-md">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl">
           <div>
             <label className="label-base">Контрагент</label>
             <Select value={contractorFilter} onChange={setContractorFilter} options={contractors.map((c) => ({ value: c.id, label: c.name }))} placeholder="Все контрагенты" />
+          </div>
+          <div>
+            <label className="label-base">Автомобиль</label>
+            <Select value={carFilter} onChange={setCarFilter} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Все автомобили" />
           </div>
           <div className="flex items-end">
             <button
