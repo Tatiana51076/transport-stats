@@ -215,6 +215,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
+                  <th className="px-4 py-3 font-semibold">№ счёта</th>
                   <th className="px-4 py-3 font-semibold">Дата</th>
                   <th className="px-4 py-3 font-semibold">Контрагент</th>
                   <th className="px-4 py-3 font-semibold">Автомобиль</th>
@@ -233,6 +234,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
                   const isPartial = !inv.paid && Number(inv.paid_amount) > 0 && Number(inv.paid_amount) < Number(inv.amount);
                   return (
                   <tr key={inv.id} className={`transition hover:bg-primary-50/40 ${isPartial ? 'bg-error-50/60' : ''}`}>
+                    <td className="px-4 py-3 font-medium text-primary-800">{inv.invoice_number || '—'}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(inv.date)}</td>
                     <td className="px-4 py-3 text-primary-700">{inv.contractor_name}</td>
                     <td className="px-4 py-3 text-primary-600">{inv.cars?.plate_number || '—'}</td>
@@ -288,6 +290,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
 }) {
   const today = toDateInput(new Date().toISOString());
   const [date, setDate] = useState(today);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [contractorId, setContractorId] = useState('');
   const [carId, setCarId] = useState('');
   const [driverId, setDriverId] = useState('');
@@ -310,6 +313,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
     const contractorName = contractors.find((c) => c.id === contractorId)?.name || '';
     setSaving(true);
     const { error } = await supabase.from('invoices').insert({
+      invoice_number: invoiceNumber.trim() || null,
       contractor_name: contractorName,
       car_id: carId || null,
       driver_id: driverId || null,
@@ -341,6 +345,9 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
         </div>
         <Field label="Дата *">
           <input type="date" className="input-base" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Номер счёта">
+          <input className="input-base" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="Например: 125 от 24.06.2026" />
         </Field>
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />
@@ -388,6 +395,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
   onClose: () => void; onSaved: () => void; notify: ToastFn;
 }) {
   const [date, setDate] = useState(toDateInput(invoice.date));
+  const [invoiceNumber, setInvoiceNumber] = useState(invoice.invoice_number || '');
   const [contractorId, setContractorId] = useState(contractors.find((c) => c.name === invoice.contractor_name)?.id || '');
   const [carId, setCarId] = useState(invoice.car_id || '');
   const [driverId, setDriverId] = useState(invoice.driver_id || '');
@@ -409,6 +417,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
     setSaving(true);
     const { error } = await supabase.from('invoices').update({
       date,
+      invoice_number: invoiceNumber.trim() || null,
       contractor_name: contractors.find((c) => c.id === contractorId)?.name || invoice.contractor_name,
       car_id: carId || null,
       driver_id: driverId || null,
@@ -439,6 +448,9 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
         </div>
         <Field label="Дата *">
           <input type="date" className="input-base" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Номер счёта">
+          <input className="input-base" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="Например: 125 от 24.06.2026" />
         </Field>
         <Field label="Сумма счёта, ₽ *">
           <input type="number" min="0" step="0.01" className="input-base" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="50000" />

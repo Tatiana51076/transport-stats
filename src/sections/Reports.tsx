@@ -187,8 +187,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     if (totals.invTotal > 0) {
       tables.push({
         title: `Счета (${periodStr})`,
-        headers: ['Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток', 'Статус'],
+        headers: ['№ счёта', 'Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток', 'Статус'],
         rows: sortedInvoices.map((i) => [
+          i.invoice_number || '—',
           formatDate(i.date), i.contractor_name,
           String(Number(i.amount).toFixed(2).replace('.', ',')),
           String(Number(i.paid ? i.amount : (i.paid_amount || 0)).toFixed(2).replace('.', ',')),

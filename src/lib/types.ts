@@ -77,6 +77,7 @@ export const EXPENSE_CATEGORIES: { key: Expense['category']; label: string; icon
 
 export interface Invoice {
   id: string;
+  invoice_number: string | null;
   contractor_name: string;
   car_id: string | null;
   driver_id: string | null;
