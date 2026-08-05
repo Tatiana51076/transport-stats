@@ -114,18 +114,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
       const lastDayStr = lastDay.toISOString().slice(0, 10);
       if (nextDayStr <= lastDayStr) {
-        let extraQ = supabase.from('expenses').select('amount, personal').gte('date', nextDayStr).lte('date', lastDayStr);
-        if (excludePersonal) {
-          const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
-          const { data: extraRows } = await extraQ;
-          const rows = (extraRows as { amount: number; personal: boolean }[]) || [];
-          const sum = rows.filter((e) => !e.personal).reduce((s, e) => s + Number(e.amount), 0);
-          setExtraExpenses(sum > 0 ? String(sum) : '');
-        } else {
-          const { data: extraRows } = await extraQ;
-          const sum = (extraRows as { amount: number }[])?.reduce((s, e) => s + Number(e.amount), 0) || 0;
-          setExtraExpenses(sum > 0 ? String(sum) : '');
-        }
+        const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
+        const rows = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+        const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+        const sum = rows
+          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIds.includes(e.car_id))))
+          .reduce((s, e) => s + Number(e.amount), 0);
+        setExtraExpenses(sum > 0 ? String(sum) : '');
       } else {
         setExtraExpenses('');
       }
