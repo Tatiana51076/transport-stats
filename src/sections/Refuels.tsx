@@ -17,13 +17,20 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'custom', label: 'Произвольный' },
 ];
 
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function rangeFor(p: PeriodKey): { from: string; to: string } {
   const now = new Date();
   const to = new Date(now);
   const from = new Date(now);
   if (p === 'week') from.setDate(now.getDate() - 7);
   else if (p === 'month') from.setMonth(now.getMonth() - 1);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: toDateStr(from), to: toDateStr(to) };
 }
 
 interface RefuelsProps {
@@ -45,15 +52,28 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
   const [customFrom, setCustomFrom] = useState(rangeFor('month').from);
   const [customTo, setCustomTo] = useState(rangeFor('month').to);
   const [sortAsc, setSortAsc] = useState(false);
+  const [excludePersonal, setExcludePersonal] = useState(false);
+
+  const { from, to } = useMemo(() => {
+    if (period === 'custom') return { from: customFrom, to: customTo };
+    return rangeFor(period);
+  }, [period, customFrom, customTo]);
+
+  const personalCarIds = useMemo(() => cars.filter((c) => c.personal).map((c) => c.id), [cars]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('refuels').select('*, cars(id,plate_number), drivers(id,full_name)').order('date', { ascending: false });
+    const { data, error } = await supabase.from('refuels').select('*, cars(id,plate_number), drivers(id,full_name)').gte('date', from).lte('date', to).order('date', { ascending: false });
     if (!error) setRefuels((data as RefuelWithRefs[]) || []);
     setLoading(false);
-  }, []);
+  }, [from, to]);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredRefuels = useMemo(() => {
+    if (!excludePersonal) return refuels;
+    return refuels.filter((r) => !r.car_id || !personalCarIds.includes(r.car_id));
+  }, [refuels, excludePersonal, personalCarIds]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -64,13 +84,8 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
     else { notify('Заправка удалена'); setConfirmDelete(null); load(); }
   };
 
-  const { from, to } = useMemo(() => {
-    if (period === 'custom') return { from: customFrom, to: customTo };
-    return rangeFor(period);
-  }, [period, customFrom, customTo]);
-
   const report = useMemo(() => {
-    const inRange = refuels.filter((r) => r.date >= from && r.date <= to);
+    const inRange = filteredRefuels;
     const totalCost = inRange.reduce((s, r) => s + Number(r.cost), 0);
     const totalLiters = inRange.reduce((s, r) => s + (Number(r.liters) || 0), 0);
     const avgCheck = inRange.length > 0 ? totalCost / inRange.length : 0;
@@ -96,8 +111,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
 
     return {
       totalCost, totalLiters, count: inRange.length, avgCheck, daily,
-      byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),
-      byCar: group((r) => (r.cars ? { id: r.cars.id, label: r.cars.plate_number } : null)),
+      byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),      byCar: group((r) => (r.cars ? { id: r.cars.id, label: r.cars.plate_number } : null)),
     };
   }, [refuels, from, to]);
 
@@ -155,6 +169,11 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
           </div>
         )}
 
+        <label className="flex w-fit items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
+          <span className="text-sm text-primary-600">Исключить личные автомобили</span>
+        </label>
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={<Fuel className="h-5 w-5" />} label="Заправок" value={String(report.count)} accent="accent" />
           <Kpi icon={<Droplets className="h-5 w-5" />} label="Литров" value={report.totalLiters.toFixed(1)} accent="primary" />
@@ -198,7 +217,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-50">
-                {[...refuels].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)).map((r) => (
+                {[...filteredRefuels].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)).map((r) => (
                   <tr key={r.id} className="transition hover:bg-primary-50/40">
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(r.date)}</td>
                     <td className="px-4 py-3 text-primary-600">{r.cars?.plate_number || '—'}</td>
