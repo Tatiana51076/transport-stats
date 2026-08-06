@@ -59,6 +59,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [sortAsc, setSortAsc] = useState(true);
   const [extraExpenses, setExtraExpenses] = useState('');
   const [prevMonthExpenses, setPrevMonthExpenses] = useState('');
+  const [monthExpenses, setMonthExpenses] = useState<ExpenseWithCar[]>([]);
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
@@ -154,6 +155,24 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       }
     }
 
+    // Детальные расходы за полный месяц окончания периода (например июль для 24.06–19.07)
+    if (to) {
+      const endDate = new Date(to);
+      const monthStart = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+      const monthStartStr = toDateStr(monthStart);
+      const monthEnd = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+      const monthEndStr = toDateStr(monthEnd);
+      let mq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', monthStartStr).lte('date', monthEndStr).order('date', { ascending: true });
+      if (carFilter.length > 0) mq = mq.in('car_id', carFilter);
+      const { data: monthRows } = await mq;
+      let filteredMonth = (monthRows as ExpenseWithCar[]) || [];
+      if (excludePersonal) {
+        const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
+        filteredMonth = filteredMonth.filter((e) => !e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id)));
+      }
+      setMonthExpenses(filteredMonth);
+    }
+
     setLoading(false);
     setLoaded(true);
   };
@@ -169,6 +188,10 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const sortedInvoices = useMemo(() => {
     return [...invoices].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
   }, [invoices, sortAsc]);
+
+  const sortedMonthExpenses = useMemo(() => {
+    return [...monthExpenses].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
+  }, [monthExpenses, sortAsc]);
 
   const totals = useMemo(() => {
     const revenue = data.reduce((s, r) => s + Number(r.cost), 0);
@@ -274,6 +297,42 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         title: `Расходы по категориям (${periodStr})`,
         headers: ['Категория', 'Сумма'],
         rows: totals.expByCategory.map((c) => [c.label, String(Number(c.amount).toFixed(2).replace('.', ','))]),
+      });
+    }
+
+    tables.push({
+      title: 'Прибыль для распределения между партнёрами',
+      headers: ['Показатель', 'Значение'],
+      rows: [
+        ['Получено оплат', String(Number(totals.invPaid).toFixed(2).replace('.', ','))],
+        ['Расходы за период', String(Number(totals.expTotal).toFixed(2).replace('.', ','))],
+        ['Расходы предыдущего месяца', String(Number(totals.prevMonthExpenses || 0).toFixed(2).replace('.', ','))],
+        ['Доп. расходы (после периода)', String(Number(totals.extraExpenses || 0).toFixed(2).replace('.', ','))],
+        ['Итоговые расходы', String(Number(totals.adjustedExpenses).toFixed(2).replace('.', ','))],
+        ['Доступно партнёрам', String(Number(totals.distributableProfit).toFixed(2).replace('.', ','))],
+        ['Доля партнёра (50%)', String(Number(totals.partnerShare).toFixed(2).replace('.', ','))],
+        ['Долги (не оплачено)', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
+      ],
+    });
+
+    if (monthExpenses.length > 0) {
+      const me = monthExpenses[0];
+      const monthLabel = me.date ? new Date(me.date).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '';
+      const monthTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
+      tables.push({
+        title: `Детально по расходам за месяц: ${monthLabel}`,
+        headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
+        rows: [
+          ...sortedMonthExpenses.map((e) => [
+            formatDate(e.date),
+            EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
+            e.cars?.plate_number || '—',
+            e.employee_name || '—',
+            e.description || '—',
+            String(Number(e.amount).toFixed(2).replace('.', ',')),
+          ]),
+          ['', '', '', '', 'ИТОГО', String(Number(monthTotal).toFixed(2).replace('.', ','))],
+        ],
       });
     }
 
