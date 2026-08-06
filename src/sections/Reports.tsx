@@ -280,23 +280,39 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       });
     }
 
-    if (totals.expTotal > 0) {
+    if (monthExpenses.length > 0) {
+      const endDate = new Date(to);
+      const mStart = toDateStr(new Date(endDate.getFullYear(), endDate.getMonth(), 1));
+      const mEnd = toDateStr(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0));
+      const monthPeriodStr = `${formatDate(mStart)}—${formatDate(mEnd)}`;
+      const monthTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
       tables.push({
-        title: `Детально по расходам (${periodStr})`,
+        title: `Детально по расходам за месяц (${monthPeriodStr})`,
         headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
-        rows: sortedExpenses.map((e) => [
-          formatDate(e.date),
-          EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
-          e.cars?.plate_number || '—',
-          e.employee_name || '—',
-          e.description || '—',
-          String(Number(e.amount).toFixed(2).replace('.', ',')),
-        ]),
+        rows: [
+          ...sortedMonthExpenses.map((e) => [
+            formatDate(e.date),
+            EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
+            e.cars?.plate_number || '—',
+            e.employee_name || '—',
+            e.description || '—',
+            String(Number(e.amount).toFixed(2).replace('.', ',')),
+          ]),
+          ['', '', '', '', 'ИТОГО', String(Number(monthTotal).toFixed(2).replace('.', ','))],
+        ],
       });
+
+      const monthCat = new Map<string, number>();
+      for (const e of monthExpenses) {
+        monthCat.set(e.category, (monthCat.get(e.category) || 0) + Number(e.amount));
+      }
+      const monthExpByCategory = EXPENSE_CATEGORIES
+        .map((c) => ({ label: c.label, amount: monthCat.get(c.key) || 0 }))
+        .filter((c) => c.amount > 0);
       tables.push({
-        title: `Расходы по категориям (${periodStr})`,
+        title: `Расходы по категориям за месяц (${monthPeriodStr})`,
         headers: ['Категория', 'Сумма'],
-        rows: totals.expByCategory.map((c) => [c.label, String(Number(c.amount).toFixed(2).replace('.', ','))]),
+        rows: monthExpByCategory.map((c) => [c.label, String(Number(c.amount).toFixed(2).replace('.', ','))]),
       });
     }
 
@@ -314,27 +330,6 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         ['Долги (не оплачено)', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
       ],
     });
-
-    if (monthExpenses.length > 0) {
-      const me = monthExpenses[0];
-      const monthLabel = me.date ? new Date(me.date).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' }) : '';
-      const monthTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
-      tables.push({
-        title: `Детально по расходам за месяц: ${monthLabel}`,
-        headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
-        rows: [
-          ...sortedMonthExpenses.map((e) => [
-            formatDate(e.date),
-            EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
-            e.cars?.plate_number || '—',
-            e.employee_name || '—',
-            e.description || '—',
-            String(Number(e.amount).toFixed(2).replace('.', ',')),
-          ]),
-          ['', '', '', '', 'ИТОГО', String(Number(monthTotal).toFixed(2).replace('.', ','))],
-        ],
-      });
-    }
 
     tables.push({
       title: 'Финансовый итог',
