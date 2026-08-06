@@ -241,6 +241,21 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     };
   }, [data, expenses, invoices, extraExpenses, prevMonthExpenses]);
 
+  const monthTotals = useMemo(() => {
+    const total = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
+    const byCategory = new Map<string, number>();
+    for (const e of monthExpenses) {
+      byCategory.set(e.category, (byCategory.get(e.category) || 0) + Number(e.amount));
+    }
+    const expByCategory = EXPENSE_CATEGORIES.map((c) => ({
+      label: c.label, amount: byCategory.get(c.key) || 0,
+    })).filter((c) => c.amount > 0);
+    const monthLabel = monthExpenses.length > 0
+      ? new Date(monthExpenses[0].date).toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
+      : '';
+    return { total, expByCategory, monthLabel, count: monthExpenses.length };
+  }, [monthExpenses]);
+
   const handleExport = () => {
     const periodStr = `${formatDate(from)}—${formatDate(to)}`;
     const tables = [];
@@ -755,11 +770,11 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
               </div>
             )}
 
-            {totals.expByCategory.length > 0 && (
+            {monthTotals.expByCategory.length > 0 && (
               <div className="mb-6">
-                <h4 className="mb-3 text-sm font-bold text-primary-700">Расходы по категориям</h4>
+                <h4 className="mb-3 text-sm font-bold text-primary-700">Расходы по категориям за месяц ({monthTotals.monthLabel})</h4>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {totals.expByCategory.map((c) => (
+                  {monthTotals.expByCategory.map((c) => (
                     <div key={c.label} className="rounded-xl bg-primary-50 p-3">
                       <p className="text-xs text-primary-500">{c.label}</p>
                       <p className="mt-1 text-base font-bold text-primary-900">{formatRub(c.amount)}</p>
@@ -769,9 +784,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
               </div>
             )}
 
-            {expenses.length > 0 && (
+            {monthExpenses.length > 0 && (
               <div className="mb-6">
-                <h4 className="mb-3 text-sm font-bold text-primary-700">Детально по расходам</h4>
+                <h4 className="mb-3 text-sm font-bold text-primary-700">Детально по расходам за месяц ({monthTotals.monthLabel})</h4>
                 <div className="overflow-x-auto scrollbar-thin">
                   <table className="w-full text-sm">
                     <thead>
@@ -785,7 +800,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-primary-50">
-                      {sortedExpenses.map((e) => (
+                      {sortedMonthExpenses.map((e) => (
                         <tr key={e.id} className="transition hover:bg-primary-50/40">
                           <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(e.date)}</td>
                           <td className="px-4 py-3 text-primary-600">{EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category}</td>
@@ -797,6 +812,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                       ))}
                     </tbody>
                   </table>
+                  <p className="mt-2 text-sm font-bold text-primary-800">Итого за месяц: {formatRub(monthTotals.total)}</p>
                 </div>
               </div>
             )}
