@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileText, Fuel, Users, Receipt, MoreHorizontal, Plus, Truck, Calendar, Hash, DollarSign, User, AlignLeft, Pencil } from 'lucide-react';
+import { FileText, Fuel, Users, Receipt, MoreHorizontal, Plus, Truck, Calendar, Hash, DollarSign, User, AlignLeft, Pencil, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Expense, ExpenseWithCar, Car } from '@/lib/types';
 import { EXPENSE_CATEGORIES } from '@/lib/types';
-import { formatRub, formatDate, toDateInput } from '@/lib/format';
+import { formatRub, formatDate, toDateInput, exportToExcel } from '@/lib/format';
 import { SectionHeader, Modal, Field, Select, FormActions } from '@/sections/Cars';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DeleteButton } from '@/components/DeleteButton';
@@ -94,6 +94,52 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
 
   const totalAmount = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
 
+  const handleExportExcel = async () => {
+    const periodLabel = dateFrom || dateTo ? `${formatDate(dateFrom || '1970-01-01')}—${dateTo ? formatDate(dateTo) : 'по н.в.'}` : 'все';
+    let q = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)');
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    if (carFilter) q = q.eq('car_id', carFilter);
+    const { data, error } = await q;
+    if (error) { notify('Ошибка выгрузки', 'error'); return; }
+    let rows = (data as ExpenseWithCar[]) || [];
+    if (excludePersonal) {
+      const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+      rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
+    }
+
+    const tables: { title: string; headers: string[]; rows: string[][] }[] = [];
+
+    for (const cat of EXPENSE_CATEGORIES) {
+      const catRows = rows.filter((e) => e.category === cat.key).sort((a, b) => a.date.localeCompare(b.date));
+      if (catRows.length === 0) continue;
+      const headers = ['Дата', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'];
+      const tableRows = catRows.map((e) => [
+        formatDate(e.date),
+        e.cars?.plate_number || '—',
+        e.employee_name || '—',
+        e.description || '—',
+        String(Number(e.amount).toFixed(2).replace('.', ',')),
+      ]);
+      const total = catRows.reduce((s, e) => s + Number(e.amount), 0);
+      tableRows.push(['', '', '', 'ИТОГО', String(Number(total).toFixed(2).replace('.', ','))]);
+      tables.push({ title: `${cat.label} (${periodLabel})`, headers, rows: tableRows });
+    }
+
+    const overall = rows.reduce((s, e) => s + Number(e.amount), 0);
+    tables.push({
+      title: 'Всего по всем категориям',
+      headers: ['Категория', 'Сумма'],
+      rows: EXPENSE_CATEGORIES.map((cat) => [
+        cat.label,
+        String(Number(rows.filter((e) => e.category === cat.key).reduce((s, e) => s + Number(e.amount), 0)).toFixed(2).replace('.', ',')),
+      ]).filter((r) => Number(r[1].replace(',', '.')) > 0).concat([['ИТОГО', String(Number(overall).toFixed(2).replace('.', ','))]]),
+    });
+
+    exportToExcel(`Расходы_${periodLabel}`, tables);
+    notify('Расходы выгружены в Excel', 'success');
+  };
+
   return (
     <div className="space-y-6">
       <SectionHeader title="Расходы" subtitle="Учёт всех затрат по категориям" />
@@ -142,6 +188,14 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
           className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
         >
           {sortAsc ? '↑ Сначала старые' : '↓ Сначала новые'}
+        </button>
+        <button
+          onClick={handleExportExcel}
+          className="flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50"
+          title="Скачать расходы за выбранный период в Excel (по категориям)"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Скачать Excel
         </button>
         {(dateFrom || dateTo || carFilter || excludePersonal) && (
           <button onClick={() => { setDateFrom(''); setDateTo(''); setCarFilter(''); setExcludePersonal(false); }} className="text-xs text-primary-500 hover:text-primary-700 underline">

@@ -101,6 +101,7 @@ function App() {
           notify={notify}
           onDeleted={refs.reload}
           onOpen={(car) => setOpenCar(car)}
+          contractors={refs.contractors}
         />
       );
     }

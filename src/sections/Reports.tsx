@@ -301,21 +301,27 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const mEnd = toDateStr(new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0));
       const monthPeriodStr = `${formatDate(mStart)}—${formatDate(mEnd)}`;
       const monthTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
-      tables.push({
-        title: `Детально по расходам за месяц (${monthPeriodStr})`,
-        headers: ['Дата', 'Категория', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
-        rows: [
-          ...sortedMonthExpenses.map((e) => [
-            formatDate(e.date),
-            EXPENSE_CATEGORIES.find((c) => c.key === e.category)?.label || e.category,
-            e.cars?.plate_number || '—',
-            e.employee_name || '—',
-            e.description || '—',
-            String(Number(e.amount).toFixed(2).replace('.', ',')),
-          ]),
-          ['', '', '', '', 'ИТОГО', String(Number(monthTotal).toFixed(2).replace('.', ','))],
-        ],
-      });
+
+      // Детальные расходы по категориям (как вкладки расходов)
+      for (const cat of EXPENSE_CATEGORIES) {
+        const catRows = monthExpenses.filter((e) => e.category === cat.key).sort((a, b) => a.date.localeCompare(b.date));
+        if (catRows.length === 0) continue;
+        const catTotal = catRows.reduce((s, e) => s + Number(e.amount), 0);
+        tables.push({
+          title: `${cat.label} за месяц (${monthPeriodStr})`,
+          headers: ['Дата', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'],
+          rows: [
+            ...catRows.map((e) => [
+              formatDate(e.date),
+              e.cars?.plate_number || '—',
+              e.employee_name || '—',
+              e.description || '—',
+              String(Number(e.amount).toFixed(2).replace('.', ',')),
+            ]),
+            ['', '', '', 'ИТОГО', String(Number(catTotal).toFixed(2).replace('.', ','))],
+          ],
+        });
+      }
 
       const monthCat = new Map<string, number>();
       for (const e of monthExpenses) {

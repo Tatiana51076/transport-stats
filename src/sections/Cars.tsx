@@ -17,9 +17,10 @@ interface CarListProps {
   notify: ToastFn;
   onDeleted: () => void;
   onOpen: (car: Car) => void;
+  contractors?: { id: string; name: string }[];
 }
 
-export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListProps) {
+export function CarList({ cars, loading, notify, onDeleted, onOpen, contractors }: CarListProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [editCar, setEditCar] = useState<Car | null>(null);
   const [confirmCar, setConfirmCar] = useState<Car | null>(null);
@@ -114,13 +115,14 @@ export function CarList({ cars, loading, notify, onDeleted, onOpen }: CarListPro
         confirmLabel={deleting ? 'Удаление…' : 'Удалить'}
       />
 
-      <RecordsFilter cars={cars} notify={notify} />
+      <RecordsFilter cars={cars} contractors={contractors || []} notify={notify} />
     </div>
   );
 }
 
-function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
+function RecordsFilter({ cars, contractors, notify }: { cars: Car[]; contractors: { id: string; name: string }[]; notify: ToastFn }) {
   const [carId, setCarId] = useState('');
+  const [contractorId, setContractorId] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [records, setRecords] = useState<RecordWithRefs[]>([]);
@@ -128,17 +130,18 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
   const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
-    if (!carId && !dateFrom && !dateTo) { setRecords([]); return; }
+    if (!carId && !contractorId && !dateFrom && !dateTo) { setRecords([]); return; }
     setLoading(true);
     let q = supabase.from('records').select('*, trips(id,name), drivers(id,full_name), contractors(id,name), cars(id,plate_number,brand,model)');
     if (carId) q = q.eq('car_id', carId);
+    if (contractorId) q = q.eq('contractor_id', contractorId);
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
     q = q.order('date', { ascending: false });
     const { data, error } = await q;
     if (!error) setRecords((data as RecordWithRefs[]) || []);
     setLoading(false);
-  }, [carId, dateFrom, dateTo, reloadKey]);
+  }, [carId, contractorId, dateFrom, dateTo, reloadKey]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -157,6 +160,13 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
           </select>
         </div>
         <div>
+          <label className="label-base">Контрагент</label>
+          <select className="input-base" value={contractorId} onChange={(e) => setContractorId(e.target.value)}>
+            <option value="">Все контрагенты</option>
+            {contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
           <label className="label-base">С</label>
           <input type="date" className="input-base" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         </div>
@@ -164,8 +174,8 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
           <label className="label-base">По</label>
           <input type="date" className="input-base" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         </div>
-        {(carId || dateFrom || dateTo) && (
-          <button onClick={() => { setCarId(''); setDateFrom(''); setDateTo(''); setRecords([]); }} className="text-xs text-primary-500 hover:text-primary-700 underline mb-1">
+        {(carId || contractorId || dateFrom || dateTo) && (
+          <button onClick={() => { setCarId(''); setContractorId(''); setDateFrom(''); setDateTo(''); setRecords([]); }} className="text-xs text-primary-500 hover:text-primary-700 underline mb-1">
             Сбросить
           </button>
         )}
@@ -176,7 +186,7 @@ function RecordsFilter({ cars, notify }: { cars: Car[]; notify: ToastFn }) {
 
       {loading ? (
         <LoadingState label="Загрузка рейсов…" />
-      ) : carId || dateFrom || dateTo ? (
+      ) : carId || contractorId || dateFrom || dateTo ? (
         records.length === 0 ? (
           <EmptyState title="Нет рейсов" description="Не найдено рейсов по выбранным фильтрам" />
         ) : (
@@ -380,6 +390,7 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
   const [deleting, setDeleting] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [contractorFilter, setContractorFilter] = useState('');
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -389,12 +400,13 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
       .eq('car_id', car.id);
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
+    if (contractorFilter) q = q.eq('contractor_id', contractorFilter);
     q = q.order('date', { ascending: false });
     const { data, error } = await q;
     if (error) { notify('Ошибка загрузки рейсов', 'error'); }
     setRecords((data as RecordWithRefs[]) || []);
     setLoading(false);
-  }, [car.id, dateFrom, dateTo, notify]);
+  }, [car.id, dateFrom, dateTo, contractorFilter, notify]);
 
   useEffect(() => { loadRecords(); }, [loadRecords]);
 
@@ -445,8 +457,15 @@ export function CarDetail({ car, refs, notify, onBack, onRefsReload }: CarDetail
             <label className="text-xs font-semibold text-primary-500">По</label>
             <input type="date" className="input-base py-1.5 px-2 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
-          {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="text-xs text-primary-500 hover:text-primary-700 underline">Сбросить</button>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-primary-500">Контрагент</label>
+            <select className="input-base py-1.5 px-2 text-xs" value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
+              <option value="">Все контрагенты</option>
+              {refs.contractors.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          {(dateFrom || dateTo || contractorFilter) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); setContractorFilter(''); }} className="text-xs text-primary-500 hover:text-primary-700 underline">Сбросить</button>
           )}
         </div>
 
