@@ -14,12 +14,14 @@ import { Refuels } from '@/sections/Refuels';
 import { DriverRating } from '@/sections/DriverRating';
 import { BirthdayReminder } from '@/components/BirthdayReminder';
 import { AuthPage } from '@/sections/Auth';
+import { Users } from '@/sections/Users';
 import { parseVoiceInput } from '@/lib/voiceParser';
 import { VoiceInputButton } from '@/components/VoiceInput';
 import { supabase } from '@/lib/supabase';
 
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'employee' | null>(null);
   const [unpaidFines, setUnpaidFines] = useState<Fine[]>([]);
   const [section, setSection] = useState<Section>('cars');
   const [openCar, setOpenCar] = useState<Car | null>(null);
@@ -28,19 +30,23 @@ function App() {
   const refs = useReferences();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then((res: { data: { session: { user?: { role?: string } } | null } }) => {
+      const session = res?.data?.session;
       setAuthenticated(!!session);
+      setUserRole((session?.user?.role as 'admin' | 'employee') || null);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session: any) => {
       setAuthenticated(!!session);
+      setUserRole(session?.user?.role || null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    supabase.from('fines').select('*, drivers(id,full_name)').eq('paid', false).then(({ data }) => {
+    supabase.from('fines').select('*, drivers(id,full_name)').eq('paid', false).then((res: { data: any }) => {
+      const data = res?.data;
       if (!data) return;
       const rows = data as (Fine & { drivers?: { full_name: string } | null })[];
       const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
@@ -162,6 +168,9 @@ function App() {
     if (section === 'reports') {
       return <Reports cars={refs.cars} drivers={refs.drivers} contractors={refs.contractors} notify={notify} />;
     }
+    if (section === 'users' && userRole === 'admin') {
+      return <Users notify={notify} />;
+    }
     return null;
   };
 
@@ -179,7 +188,14 @@ function App() {
 
   return (
     <>
-      <AppShell active={section} onNavigate={handleNavigate} onLogout={() => { localStorage.removeItem('transport-stats-auth-v2'); setAuthenticated(false); }} toasts={toasts} onDismissToast={dismiss}>
+      <AppShell
+        active={section}
+        onNavigate={handleNavigate}
+        userRole={userRole}
+        onLogout={() => { supabase.auth.signOut(); setAuthenticated(false); setUserRole(null); }}
+        toasts={toasts}
+        onDismissToast={dismiss}
+      >
         <BirthdayReminder drivers={refs.drivers} onDismiss={() => {}} />
         {unpaidFines.length > 0 && (
           <div className="mb-4 rounded-xl border border-error-200 bg-error-50 p-4 no-print">

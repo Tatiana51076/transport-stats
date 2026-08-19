@@ -1,7 +1,45 @@
-// ── Data API (PostgREST) ──
+// ============================================================
+// Клиент API (безопасная версия).
+// Все запросы к данным отправляются с токеном в заголовке
+// Authorization: Bearer <token>. Пароль на клиенте НЕ хранится.
+// ============================================================
 
 const API = '/api';
+const AUTH_KEY = 'transport-stats-auth-v2';
 
+export interface SessionUser {
+  id: string;
+  email: string;
+  role: 'admin' | 'employee';
+}
+
+function readStored(): { token?: string; userId?: string; email?: string; role?: string } | null {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function getToken(): string | null {
+  const s = readStored();
+  return s?.token || null;
+}
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Cache-Control': 'no-cache',
+  };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (extra) Object.assign(headers, extra);
+  return headers;
+}
+
+// ---- Построитель запросов к таблицам (PostgREST-подобный) ----
 function buildQuery(table: string) {
   const params: string[] = [];
   let selectQuery = '*';
@@ -28,9 +66,13 @@ function buildQuery(table: string) {
       if (params.length) url += '&' + params.join('&');
       if (limitNum) url += `&limit=${limitNum}`;
       url += `&_ts=${Date.now()}`;
-      fetch(url, { headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' } })
+      fetch(url, { headers: authHeaders() })
         .then(async (res) => {
-          if (!res.ok) { const t = await res.text(); resolve({ data: null, error: new Error(t) }); return; }
+          if (!res.ok) {
+            const t = await res.text();
+            resolve({ data: null, error: new Error(t) });
+            return;
+          }
           let data = await res.json();
           if (isSingle) data = data?.[0] || null;
           resolve({ data, error: null });
@@ -43,8 +85,8 @@ function buildQuery(table: string) {
     try {
       const res = await fetch(`${API}/${table}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Prefer: 'return=representation' },
-        body: JSON.stringify(Array.isArray(values) ? values : values),
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(values),
       });
       if (!res.ok) {
         const text = await res.text();
@@ -58,7 +100,8 @@ function buildQuery(table: string) {
   q.delete = () => ({
     eq: async (col: string, val: any) => {
       try {
-        const res = await fetch(`${API}/${table}?${col}=eq.${encodeURIComponent(String(val))}`, { method: 'DELETE', headers: { Accept: 'application/json' } });
+        const res = await fetch(`${API}/${table}?${col}=eq.${encodeURIComponent(String(val))}`,
+          { method: 'DELETE', headers: authHeaders() });
         return { data: res.ok ? await res.json() : null, error: res.ok ? null : new Error(await res.text()) };
       } catch (err: any) { return { data: null, error: err }; }
     },
@@ -68,7 +111,8 @@ function buildQuery(table: string) {
     eq: async (col: string, val: any) => {
       try {
         const res = await fetch(`${API}/${table}?${col}=eq.${encodeURIComponent(String(val))}`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(values),
         });
         return { data: res.ok ? await res.json() : null, error: res.ok ? null : new Error(await res.text()) };
@@ -79,10 +123,7 @@ function buildQuery(table: string) {
   return q;
 }
 
-// ── Auth ──
-
-const AUTH_KEY = 'transport-stats-auth-v2';
-
+// ---- Авторизация ----
 async function authFetch(method: string, data: any) {
   try {
     const res = await fetch(`${API}/auth`, {
@@ -90,39 +131,101 @@ async function authFetch(method: string, data: any) {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ method, ...data }),
     });
-    return await res.json();
-  } catch { return null; }
+    const text = await res.text();
+    try { return { ok: res.ok, status: res.status, data: JSON.parse(text) }; }
+    catch { return { ok: res.ok, status: res.status, data: { error: text } }; }
+  } catch {
+    return { ok: false, status: 0, data: { error: 'network_error' } };
+  }
+}
+
+function saveSession(user: SessionUser, token: string) {
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ token, userId: user.id, email: user.email, role: user.role }));
 }
 
 export const supabase = {
   from(table: string) { return buildQuery(table); },
+
   auth: {
     signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
-      const result = await authFetch('login', { email, password });
-      if (!result || result.error) return { data: { user: null, session: null }, error: { message: result?.error || 'Invalid login credentials' } };
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ email, password, userId: result.id }));
-      return { data: { user: { id: result.id, email }, session: { user: { id: result.id, email }, access_token: 'local-' + Date.now() } }, error: null };
+      const r = await authFetch('login', { email: email.trim().toLowerCase(), password });
+      if (!r.ok) {
+        return { data: { user: null, session: null }, error: { message: 'Неверный email или пароль' } };
+      }
+      const d = r.data;
+      const user: SessionUser = { id: d.id, email: d.email, role: d.role || 'employee' };
+      saveSession(user, d.token);
+      return { data: { user, session: { user, access_token: d.token } }, error: null };
     },
-    signUp: async ({ email, password }: { email: string; password: string }) => {
-      const result = await authFetch('register', { email, password });
-      if (!result || result.error) return { data: { user: null, session: null }, error: { message: result?.error || 'Registration failed' } };
-      return { data: { user: { id: result.id || '', email }, session: null }, error: null };
+
+    // Регистрация отключена: пользователей создаёт только админ
+    signUp: async () => {
+      return { data: { user: null, session: null }, error: { message: 'Регистрация отключена. Обратитесь к администратору.' } };
     },
+
     getSession: async () => {
-      const raw = localStorage.getItem(AUTH_KEY);
-      if (!raw) return { data: { session: null } };
-      try {
-        const { email, password, userId } = JSON.parse(raw);
-        if (email && password) {
-          const result = await authFetch('verify', { email, password });
-          if (result && !result.error) return { data: { session: { user: { id: result.id, email }, access_token: 'local-' + Date.now() } } };
-        }
-      } catch {}
-      localStorage.removeItem(AUTH_KEY);
-      return { data: { session: null } };
+      const stored = readStored();
+      if (!stored?.token) return { data: { session: null } };
+      const r = await authFetch('verify', { token: stored.token });
+      if (!r.ok || !r.data || r.data.error) {
+        localStorage.removeItem(AUTH_KEY);
+        return { data: { session: null } };
+      }
+      const d = r.data;
+      const user: SessionUser = { id: d.id, email: d.email, role: d.role || 'employee' };
+      saveSession(user, stored.token);
+      return { data: { session: { user, access_token: stored.token } } };
     },
+
+    getUser: (): SessionUser | null => {
+      const s = readStored();
+      if (!s?.role) return null;
+      return { id: s.userId || '', email: s.email || '', role: s.role as SessionUser['role'] };
+    },
+
+    signOut: () => {
+      localStorage.removeItem(AUTH_KEY);
+    },
+
     onAuthStateChange: (_callback: (event: string, session: any) => void) => {
       return { data: { subscription: { unsubscribe: () => {} } } };
     },
+  },
+};
+
+// ---- Управление пользователями (только для админа) ----
+export const adminApi = {
+  listUsers: async () => {
+    const res = await fetch(`${API}/users`, { headers: authHeaders() });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || 'Ошибка загрузки пользователей');
+    }
+    return res.json();
+  },
+
+  createUser: async (email: string, password: string, role: string) => {
+    const res = await fetch(`${API}/users`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ email, password, role }),
+    });
+    const t = await res.text();
+    let j: any = {};
+    try { j = JSON.parse(t); } catch {}
+    if (!res.ok) throw new Error(j.error || t);
+    return j;
+  },
+
+  deleteUser: async (id: string) => {
+    const res = await fetch(`${API}/users?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    const t = await res.text();
+    let j: any = {};
+    try { j = JSON.parse(t); } catch {}
+    if (!res.ok) throw new Error(j.error || t);
+    return j;
   },
 };

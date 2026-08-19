@@ -1,3 +1,10 @@
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'employee';
+  created_at: string;
+}
+
 export interface Car {
   id: string;
   plate_number: string;

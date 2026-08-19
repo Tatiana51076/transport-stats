@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, FileText, Fuel, Trophy, LogOut, Menu, X } from 'lucide-react';
+import { Truck, ClipboardList, Users, Building2, BarChart3, Wallet, FileText, Fuel, Trophy, LogOut, Menu, X, ShieldCheck } from 'lucide-react';
 import { Toast, type ToastMessage } from '@/components/Toast';
 
-export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'invoices' | 'refuels' | 'rating' | 'reports';
+export type Section = 'cars' | 'trips' | 'drivers' | 'contractors' | 'expenses' | 'invoices' | 'refuels' | 'rating' | 'reports' | 'users';
 
 interface NavItem {
   key: Section;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -20,19 +21,23 @@ const NAV_ITEMS: NavItem[] = [
   { key: 'refuels', label: 'Заправки', icon: Fuel },
   { key: 'rating', label: 'Рейтинг', icon: Trophy },
   { key: 'reports', label: 'Отчёты', icon: BarChart3 },
+  { key: 'users', label: 'Пользователи', icon: ShieldCheck, adminOnly: true },
 ];
 
 interface AppShellProps {
   active: Section;
   onNavigate: (s: Section) => void;
+  userRole: 'admin' | 'employee' | null;
   onLogout: () => void;
   toasts: ToastMessage[];
   onDismissToast: (id: string) => void;
   children: React.ReactNode;
 }
 
-export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast, children }: AppShellProps) {
+export function AppShell({ active, onNavigate, userRole, onLogout, toasts, onDismissToast, children }: AppShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const visibleItems = NAV_ITEMS.filter((item) => !item.adminOnly || userRole === 'admin');
 
   const handleNav = (s: Section) => {
     onNavigate(s);
@@ -53,11 +58,14 @@ export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast,
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map((item) => (
+          {visibleItems.map((item) => (
             <NavButton key={item.key} item={item} active={active === item.key} onClick={() => handleNav(item.key)} />
           ))}
         </nav>
         <div className="px-3 pb-4">
+          <div className="mb-2 rounded-xl bg-primary-50 px-4 py-2.5 text-xs text-primary-600">
+            {userRole === 'admin' ? 'Администратор' : 'Сотрудник'}
+          </div>
           <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-error-600 transition hover:bg-error-50">
             <LogOut className="h-5 w-5 shrink-0" />
             <span>Выйти</span>
@@ -93,7 +101,7 @@ export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast,
               </button>
             </div>
             <nav className="space-y-1 p-3">
-              {NAV_ITEMS.map((item) => (
+              {visibleItems.map((item) => (
                 <NavButton key={item.key} item={item} active={active === item.key} onClick={() => handleNav(item.key)} />
               ))}
             </nav>
@@ -116,7 +124,7 @@ export function AppShell({ active, onNavigate, onLogout, toasts, onDismissToast,
 
       {/* Mobile bottom tab bar */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-stretch border-t border-primary-100 bg-white/95 backdrop-blur lg:hidden no-print">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive = active === item.key;
           return (
