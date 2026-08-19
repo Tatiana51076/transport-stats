@@ -45,6 +45,8 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!authenticated) return;
+    refs.reload();
     supabase.from('fines').select('*, drivers(id,full_name)').eq('paid', false).then((res: { data: any }) => {
       const data = res?.data;
       if (!data) return;
@@ -52,7 +54,8 @@ function App() {
       const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
       setUnpaidFines(sorted.slice(0, 5));
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
 
   const voiceLookups = useMemo(() => ({
     cars: refs.cars.map((c) => ({ id: c.id, label: `${c.plate_number} ${c.brand || ''} ${c.model || ''}` })),
