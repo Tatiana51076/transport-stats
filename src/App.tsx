@@ -177,6 +177,11 @@ function App() {
     return null;
   };
 
+  const handleAuth = useCallback(() => {
+    setAuthenticated(true);
+    setUserRole(supabase.auth.getUser()?.role || null);
+  }, []);
+
   if (authenticated === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-primary-50">
@@ -186,7 +191,7 @@ function App() {
   }
 
   if (!authenticated) {
-    return <AuthPage onAuth={() => setAuthenticated(true)} />;
+    return <AuthPage onAuth={handleAuth} />;
   }
 
   return (
