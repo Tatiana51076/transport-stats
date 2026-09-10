@@ -107,6 +107,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     setExpenses(filteredExpenses);
 
     let iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
+    if (carFilter.length > 0) iq = iq.in('car_id', carFilter);
     const { data: invRows } = await iq;
     let filteredInvoices = (invRows as Invoice[]) || [];
     if (excludePersonal) {
