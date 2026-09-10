@@ -94,7 +94,7 @@ export function DriverRating({ cars, drivers, notify }: DriverRatingProps) {
   const filteredFines = useMemo(() => {
     let rows = fines.filter((f) => f.date >= from && f.date <= to);
     if (driverFilter) rows = rows.filter((f) => f.driver_id === driverFilter);
-    if (carFilter) rows = rows.filter((f) => !f.car_id || f.car_id === carFilter);
+    if (carFilter) rows = rows.filter((f) => f.car_id === carFilter);
     return [...rows].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
   }, [fines, from, to, driverFilter, carFilter, sortAsc]);
 

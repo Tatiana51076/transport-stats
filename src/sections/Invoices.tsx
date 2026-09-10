@@ -85,7 +85,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
       rows = rows.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
     }
     if (carFilter) {
-      rows = rows.filter((i) => !i.car_id || i.car_id === carFilter);
+      rows = rows.filter((i) => i.car_id === carFilter);
     }
     if (excludePersonal) {
       rows = rows.filter((i) => !i.personal);

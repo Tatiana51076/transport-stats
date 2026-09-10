@@ -55,8 +55,10 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     const { data, error } = await q;
     if (!error) {
       let rows = (data as ExpenseWithCar[]) || [];
-      // Фильтр по авто: показываем и расходы без авто (общехозяйственные), чтобы не терять данные
-      if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
+      // Фильтр по конкретному авто: только расходы этого авто.
+      // Расходы без авто (общехозяйственные) видны только при "Все автомобили"
+      // и делятся между партнёрами.
+      if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
       if (excludePersonal) {
         const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
         rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -72,7 +74,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     if (dateTo) q = q.lte('date', dateTo);
     const { data } = await q;
     let rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-    if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
+    if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
     const all = rows.reduce((s, e) => s + Number(e.amount), 0);
     setTotalAll(all);
     const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
@@ -103,7 +105,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     const { data, error } = await q;
     if (error) { notify('Ошибка выгрузки', 'error'); return; }
     let rows = (data as ExpenseWithCar[]) || [];
-    if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
+    if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
       rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -111,9 +113,18 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
 
     const tables: { title: string; headers: string[]; rows: string[][] }[] = [];
 
+    // Сводка по категориям — всегда все категории (даже с нулём)
+    const overall = rows.reduce((s, e) => s + Number(e.amount), 0);
+    const summaryRows: string[][] = EXPENSE_CATEGORIES.map((cat) => [
+      cat.label,
+      String(Number(rows.filter((e) => e.category === cat.key).reduce((s, e) => s + Number(e.amount), 0)).toFixed(2).replace('.', ',')),
+    ]);
+    summaryRows.push(['ИТОГО', String(Number(overall).toFixed(2).replace('.', ','))]);
+    tables.push({ title: `Сводка по категориям (${periodLabel})`, headers: ['Категория', 'Сумма'], rows: summaryRows });
+
+    // Детально по каждой категории — всегда все категории
     for (const cat of EXPENSE_CATEGORIES) {
       const catRows = rows.filter((e) => e.category === cat.key).sort((a, b) => a.date.localeCompare(b.date));
-      if (catRows.length === 0) continue;
       const headers = ['Дата', 'Автомобиль', 'Сотрудник', 'Описание', 'Сумма'];
       const tableRows = catRows.map((e) => [
         formatDate(e.date),
@@ -126,16 +137,6 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
       tableRows.push(['', '', '', 'ИТОГО', String(Number(total).toFixed(2).replace('.', ','))]);
       tables.push({ title: `${cat.label} (${periodLabel})`, headers, rows: tableRows });
     }
-
-    const overall = rows.reduce((s, e) => s + Number(e.amount), 0);
-    tables.push({
-      title: 'Всего по всем категориям',
-      headers: ['Категория', 'Сумма'],
-      rows: EXPENSE_CATEGORIES.map((cat) => [
-        cat.label,
-        String(Number(rows.filter((e) => e.category === cat.key).reduce((s, e) => s + Number(e.amount), 0)).toFixed(2).replace('.', ',')),
-      ]).filter((r) => Number(r[1].replace(',', '.')) > 0).concat([['ИТОГО', String(Number(overall).toFixed(2).replace('.', ','))]]),
-    });
 
     exportToExcel(`Расходы_${periodLabel}`, tables);
     notify('Расходы выгружены в Excel', 'success');

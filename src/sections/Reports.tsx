@@ -99,9 +99,10 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const eq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', expenseFrom).lte('date', expenseTo).order('date', { ascending: true });
     const { data: expRows } = await eq;
     let filteredExpenses = (expRows as ExpenseWithCar[]) || [];
-    // При выборе авто учитываем и расходы без авто (общехозяйственные), чтобы не терять данные
+    // Фильтр по конкретным авто: только их расходы.
+    // Расходы без авто (общехозяйственные) видны только при "Все автомобили" (общий котёл партнёров).
     if (carFilter.length > 0) {
-      filteredExpenses = filteredExpenses.filter((e) => !e.car_id || carFilter.includes(e.car_id));
+      filteredExpenses = filteredExpenses.filter((e) => e.car_id && carFilter.includes(e.car_id));
     }
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
@@ -112,12 +113,12 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
     const { data: invRows } = await iq;
     let filteredInvoices = (invRows as Invoice[]) || [];
-    // При выборе авто/водителя учитываем и счета без них (общехозяйственные), чтобы не терять данные
+    // Счета: фильтр по конкретным авто/водителям (записи без авто/водителя — только в общем отчёте)
     if (carFilter.length > 0) {
-      filteredInvoices = filteredInvoices.filter((i) => !i.car_id || carFilter.includes(i.car_id));
+      filteredInvoices = filteredInvoices.filter((i) => i.car_id && carFilter.includes(i.car_id));
     }
     if (driverFilter.length > 0) {
-      filteredInvoices = filteredInvoices.filter((i) => !i.driver_id || driverFilter.includes(i.driver_id));
+      filteredInvoices = filteredInvoices.filter((i) => i.driver_id && driverFilter.includes(i.driver_id));
     }
     // Контрагент у счёта хранится как имя (contractor_name), а не ID —
     // поэтому фильтруем по именам выбранных контрагентов.
@@ -141,7 +142,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       if (!isStartOfMonth && from <= prevMonthEndStr) {
         const { data: prevRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
         let prevList = (prevRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-        if (carFilter.length > 0) prevList = prevList.filter((e) => !e.car_id || carFilter.includes(e.car_id));
+        if (carFilter.length > 0) prevList = prevList.filter((e) => e.car_id && carFilter.includes(e.car_id));
         const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
         const prevSum = prevList
           .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id))))
@@ -164,7 +165,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       if (!isEndOfMonth && nextDayStr <= lastDayStr) {
         const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
         let extraList = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-        if (carFilter.length > 0) extraList = extraList.filter((e) => !e.car_id || carFilter.includes(e.car_id));
+        if (carFilter.length > 0) extraList = extraList.filter((e) => e.car_id && carFilter.includes(e.car_id));
         const personalCarIdsAll2 = cars.filter((c) => c.personal).map((c) => c.id);
         const extraSum = extraList
           .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll2.includes(e.car_id))))
@@ -185,7 +186,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const mq = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)').gte('date', monthStartStr).lte('date', monthEndStr).order('date', { ascending: true });
       const { data: monthRows } = await mq;
       let filteredMonth = (monthRows as ExpenseWithCar[]) || [];
-      if (carFilter.length > 0) filteredMonth = filteredMonth.filter((e) => !e.car_id || carFilter.includes(e.car_id));
+      if (carFilter.length > 0) filteredMonth = filteredMonth.filter((e) => e.car_id && carFilter.includes(e.car_id));
       if (excludePersonal) {
         const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
         filteredMonth = filteredMonth.filter((e) => !e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id)));
