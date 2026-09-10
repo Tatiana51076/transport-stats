@@ -131,7 +131,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const prevMonthEnd = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0);
       const prevMonthEndStr = toDateStr(prevMonthEnd);
       if (!isStartOfMonth && from <= prevMonthEndStr) {
-        const { data: prevRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
+        let prevQ = supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
+        if (carFilter.length > 0) prevQ = prevQ.in('car_id', carFilter);
+        const { data: prevRows } = await prevQ;
         const prevList = (prevRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
         const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
         const prevSum = prevList
@@ -153,7 +155,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
       const lastDayStr = toDateStr(lastDay);
       if (!isEndOfMonth && nextDayStr <= lastDayStr) {
-        const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
+        let extraQ = supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
+        if (carFilter.length > 0) extraQ = extraQ.in('car_id', carFilter);
+        const { data: extraRows } = await extraQ;
         const extraList = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
         const personalCarIdsAll2 = cars.filter((c) => c.personal).map((c) => c.id);
         const extraSum = extraList
