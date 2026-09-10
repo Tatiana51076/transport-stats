@@ -19,6 +19,13 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'custom', label: 'Произвольный' },
 ];
 
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function rangeFor(p: PeriodKey): { from: string; to: string } {
   const now = new Date();
   const to = new Date(now);
@@ -27,7 +34,7 @@ function rangeFor(p: PeriodKey): { from: string; to: string } {
   else if (p === 'month') from.setMonth(now.getMonth() - 1);
   else if (p === 'halfyear') from.setMonth(now.getMonth() - 6);
   else if (p === 'year') from.setFullYear(now.getFullYear() - 1);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: toDateStr(from), to: toDateStr(to) };
 }
 
 interface DriverRatingProps {
@@ -87,7 +94,7 @@ export function DriverRating({ cars, drivers, notify }: DriverRatingProps) {
   const filteredFines = useMemo(() => {
     let rows = fines.filter((f) => f.date >= from && f.date <= to);
     if (driverFilter) rows = rows.filter((f) => f.driver_id === driverFilter);
-    if (carFilter) rows = rows.filter((f) => f.car_id === carFilter);
+    if (carFilter) rows = rows.filter((f) => !f.car_id || f.car_id === carFilter);
     return [...rows].sort((a, b) => sortAsc ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date));
   }, [fines, from, to, driverFilter, carFilter, sortAsc]);
 

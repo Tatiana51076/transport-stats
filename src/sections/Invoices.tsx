@@ -27,6 +27,13 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: 'custom', label: 'Произвольный' },
 ];
 
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function rangeFor(p: PeriodKey): { from: string; to: string } {
   const now = new Date();
   const to = new Date(now);
@@ -35,7 +42,7 @@ function rangeFor(p: PeriodKey): { from: string; to: string } {
   else if (p === 'month') from.setMonth(now.getMonth() - 1);
   else if (p === 'halfyear') from.setMonth(now.getMonth() - 6);
   else if (p === 'year') from.setFullYear(now.getFullYear() - 1);
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  return { from: toDateStr(from), to: toDateStr(to) };
 }
 
 export function InvoicesSection({ contractors, cars, drivers, notify }: InvoicesSectionProps) {
@@ -78,7 +85,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
       rows = rows.filter((i) => i.contractor_name === contractors.find((c) => c.id === contractorFilter)?.name);
     }
     if (carFilter) {
-      rows = rows.filter((i) => i.car_id === carFilter);
+      rows = rows.filter((i) => !i.car_id || i.car_id === carFilter);
     }
     if (excludePersonal) {
       rows = rows.filter((i) => !i.personal);

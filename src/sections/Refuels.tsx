@@ -113,7 +113,7 @@ export function Refuels({ cars, drivers, notify }: RefuelsProps) {
       totalCost, totalLiters, count: inRange.length, avgCheck, daily,
       byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),      byCar: group((r) => (r.cars ? { id: r.cars.id, label: r.cars.plate_number } : null)),
     };
-  }, [refuels, from, to]);
+  }, [filteredRefuels]);
 
   return (
     <div className="space-y-6">

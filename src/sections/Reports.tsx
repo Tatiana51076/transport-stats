@@ -109,11 +109,16 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
     setExpenses(filteredExpenses);
 
-    let iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
-    if (carFilter.length > 0) iq = iq.in('car_id', carFilter);
-    if (driverFilter.length > 0) iq = iq.in('driver_id', driverFilter);
+    const iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
     const { data: invRows } = await iq;
     let filteredInvoices = (invRows as Invoice[]) || [];
+    // При выборе авто/водителя учитываем и счета без них (общехозяйственные), чтобы не терять данные
+    if (carFilter.length > 0) {
+      filteredInvoices = filteredInvoices.filter((i) => !i.car_id || carFilter.includes(i.car_id));
+    }
+    if (driverFilter.length > 0) {
+      filteredInvoices = filteredInvoices.filter((i) => !i.driver_id || driverFilter.includes(i.driver_id));
+    }
     // Контрагент у счёта хранится как имя (contractor_name), а не ID —
     // поэтому фильтруем по именам выбранных контрагентов.
     if (contractorFilter.length > 0) {
