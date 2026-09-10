@@ -108,8 +108,17 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 
     let iq = supabase.from('invoices').select('*').gte('date', from).lte('date', to);
     if (carFilter.length > 0) iq = iq.in('car_id', carFilter);
+    if (driverFilter.length > 0) iq = iq.in('driver_id', driverFilter);
     const { data: invRows } = await iq;
     let filteredInvoices = (invRows as Invoice[]) || [];
+    // Контрагент у счёта хранится как имя (contractor_name), а не ID —
+    // поэтому фильтруем по именам выбранных контрагентов.
+    if (contractorFilter.length > 0) {
+      const names = new Set(
+        contractors.filter((c) => contractorFilter.includes(c.id)).map((c) => c.name),
+      );
+      filteredInvoices = filteredInvoices.filter((i) => names.has(i.contractor_name));
+    }
     if (excludePersonal) {
       filteredInvoices = filteredInvoices.filter((i) => !i.personal);
     }
