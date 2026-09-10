@@ -51,11 +51,12 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
       .eq('category', tab);
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
-    if (carFilter) q = q.eq('car_id', carFilter);
     q = q.order('date', { ascending: false });
     const { data, error } = await q;
     if (!error) {
       let rows = (data as ExpenseWithCar[]) || [];
+      // Фильтр по авто: показываем и расходы без авто (общехозяйственные), чтобы не терять данные
+      if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
       if (excludePersonal) {
         const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
         rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -69,9 +70,9 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     let q = supabase.from('expenses').select('amount, personal, car_id');
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
-    if (carFilter) q = q.eq('car_id', carFilter);
     const { data } = await q;
-    const rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+    let rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+    if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
     const all = rows.reduce((s, e) => s + Number(e.amount), 0);
     setTotalAll(all);
     const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
@@ -99,10 +100,10 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     let q = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)');
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
-    if (carFilter) q = q.eq('car_id', carFilter);
     const { data, error } = await q;
     if (error) { notify('Ошибка выгрузки', 'error'); return; }
     let rows = (data as ExpenseWithCar[]) || [];
+    if (carFilter) rows = rows.filter((e) => !e.car_id || e.car_id === carFilter);
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
       rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
