@@ -221,13 +221,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const invTotal = invoices.reduce((s, i) => s + Number(i.amount), 0);
     const invPaid = invoices.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
     const invUnpaid = invTotal - invPaid;
-    const profit = revenue - expTotal;
-    const realProfit = invPaid - expTotal;
-    const forecastProfit = invTotal - expTotal;
-    // Прибыль для распределения = получено − (расходы периода − расходы пред. месяца + доп расходы)
+    // Расходы для отчёта = расходы периода − расходы пред. месяца (по ним уже отчитались) + доп расходы.
+    // Прибыль считаем именно от итоговых расходов (adjustedExpenses), а не от сырых расходов периода.
     const extraExp = parseFloat(extraExpenses) || 0;
     const prevExp = parseFloat(prevMonthExpenses) || 0;
     const adjustedExpenses = expTotal - prevExp + extraExp;
+    const profit = revenue - adjustedExpenses;
+    const realProfit = invPaid - adjustedExpenses;
+    const forecastProfit = invTotal - adjustedExpenses;
     const distributableProfit = invPaid - adjustedExpenses;
     const partnerShare = distributableProfit / 2;
 
@@ -381,9 +382,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
         ['Оплачено счетов', String(Number(totals.invPaid).toFixed(2).replace('.', ','))],
         ['Не оплачено счетов', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
         ['Расходы', String(Number(totals.expTotal).toFixed(2).replace('.', ','))],
-        ['Прибыль (доходы - расходы)', String(Number(totals.profit).toFixed(2).replace('.', ','))],
-        ['Реальная прибыль (оплачено - расходы)', String(Number(totals.realProfit).toFixed(2).replace('.', ','))],
-        ['Прогноз прибыли (все счета - расходы)', String(Number(totals.forecastProfit).toFixed(2).replace('.', ','))],
+        ['Прибыль (доходы - итоговые расходы)', String(Number(totals.profit).toFixed(2).replace('.', ','))],
+        ['Реальная прибыль (оплачено - итоговые расходы)', String(Number(totals.realProfit).toFixed(2).replace('.', ','))],
+        ['Прогноз прибыли (все счета - итоговые расходы)', String(Number(totals.forecastProfit).toFixed(2).replace('.', ','))],
       ],
     });
 
@@ -708,8 +709,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 
             <div className="grid gap-4 sm:grid-cols-3 mb-6">
               <StatCard label="Оплачено (по факту)" value={formatRub(totals.invPaid)} accent="text-success-600 bg-success-50" />
-              <StatCard label="Прибыль (оплачено − расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
-              <StatCard label="Прогноз (все счета − расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+              <StatCard label="Прибыль (оплачено − итоговые расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+              <StatCard label="Прогноз (все счета − итоговые расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
             </div>
 
             <div className="mb-6 rounded-2xl border-2 border-accent-300 bg-accent-50 p-5">
@@ -790,8 +791,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <StatCard label="Не оплачено" value={formatRub(totals.invUnpaid)} accent="text-error-600 bg-error-50" />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                  <StatCard label="Реальная прибыль (оплачено − расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
-                  <StatCard label="Прогноз прибыли (все счета − расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                  <StatCard label="Реальная прибыль (оплачено − итоговые расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                  <StatCard label="Прогноз прибыли (все счета − итоговые расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
                 </div>
               </div>
             )}
