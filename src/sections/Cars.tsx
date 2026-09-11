@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Truck, Plus, ArrowLeft, Calendar, Hash, Pencil, Filter } from 'lucide-react';
+import { Truck, Plus, ArrowLeft, Calendar, Hash, Pencil, Filter, FileDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Car, RecordWithRefs } from '@/lib/types';
 import { MAX_RECORDS_PER_CAR } from '@/lib/types';
-import { formatRub, formatDate, toDateInput } from '@/lib/format';
+import { formatRub, formatDate, toDateInput, exportToExcel } from '@/lib/format';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { DeleteButton } from '@/components/DeleteButton';
 import { EmptyState, LoadingState } from '@/components/States';
@@ -145,6 +145,42 @@ function RecordsFilter({ cars, contractors, notify }: { cars: Car[]; contractors
 
   useEffect(() => { load(); }, [load]);
 
+  const handleExport = async () => {
+    // Выгрузка рейсов в Excel с учётом текущих фильтров (или всего списка, если фильтры не заданы)
+    let q = supabase.from('records').select('*, trips(id,name), drivers(id,full_name), contractors(id,name), cars(id,plate_number,brand,model)');
+    if (carId) q = q.eq('car_id', carId);
+    if (contractorId) q = q.eq('contractor_id', contractorId);
+    if (dateFrom) q = q.gte('date', dateFrom);
+    if (dateTo) q = q.lte('date', dateTo);
+    q = q.order('date', { ascending: true });
+    const { data, error } = await q;
+    if (error) { notify('Ошибка выгрузки', 'error'); return; }
+    const rows = (data as RecordWithRefs[]) || [];
+    const headers = ['Дата', 'Автомобиль', 'Рейс', 'Водитель', 'Контрагент', 'Паллеты', 'Стоимость'];
+    const tableRows = rows.map((r) => [
+      formatDate(r.date),
+      r.cars?.plate_number || '—',
+      r.trips?.name || '—',
+      r.drivers?.full_name || '—',
+      r.contractors?.name || '—',
+      String(r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0)),
+      String(Number(r.cost).toFixed(2).replace('.', ',')),
+    ]);
+    const totalPallets = rows.reduce((s, r) => s + r.pallets + (r.pallets2 || 0) + (r.pallets3 || 0), 0);
+    const totalCost = rows.reduce((s, r) => s + Number(r.cost), 0);
+    tableRows.push(['', '', '', '', 'ИТОГО', String(totalPallets), String(Number(totalCost).toFixed(2).replace('.', ','))]);
+    const carLabel = carId ? (cars.find((c) => c.id === carId)?.plate_number || 'авто') : 'все-авто';
+    const periodLabel = (dateFrom || dateTo)
+      ? `${formatDate(dateFrom || '1970-01-01')}—${dateTo ? formatDate(dateTo) : 'по н.в.'}`
+      : 'все';
+    exportToExcel(`Рейсы_${carLabel}_${periodLabel}`, [{
+      title: `Рейсы (${periodLabel})`,
+      headers,
+      rows: tableRows,
+    }]);
+    notify(`Рейсы выгружены: ${rows.length}`, 'success');
+  };
+
   return (
     <div className="card-base p-6 no-print">
       <div className="flex items-center gap-2 mb-4">
@@ -181,6 +217,14 @@ function RecordsFilter({ cars, contractors, notify }: { cars: Car[]; contractors
         )}
         <button onClick={() => setReloadKey((k) => k + 1)} className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 mb-1">
           Обновить
+        </button>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 transition hover:bg-primary-50 mb-1"
+          title="Скачать рейсы в Excel с учётом фильтров (или весь список)"
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Скачать Excel
         </button>
       </div>
 
