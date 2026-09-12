@@ -78,12 +78,13 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
       if (excludePersonal) rows = rows.filter((r) => !personalCarIds.includes(r.car_id));
       return rows.reduce((s, r) => s + Number(r.cost), 0);
     };
-    // Расходы: фильтр по авто (у расходов нет водителя/контрагента)
+    // Расходы: фильтр по авто и водителю
     const fetchExpenses = async (fromStr: string, toStr: string) => {
-      let q = supabase.from('expenses').select('amount, personal, car_id').gte('date', fromStr).lte('date', toStr);
+      let q = supabase.from('expenses').select('amount, personal, car_id, driver_id').gte('date', fromStr).lte('date', toStr);
       if (carFilter) q = q.eq('car_id', carFilter);
       const { data } = await q;
-      let rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+      let rows = (data as { amount: number; personal: boolean; car_id: string | null; driver_id: string | null }[]) || [];
+      if (driverFilter) rows = rows.filter((e) => e.driver_id === driverFilter);
       if (excludePersonal) rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
       return rows.reduce((s, e) => s + Number(e.amount), 0);
     };

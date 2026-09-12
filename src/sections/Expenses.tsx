@@ -38,6 +38,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [carFilter, setCarFilter] = useState('');
+  const [driverFilter, setDriverFilter] = useState('');
   const [excludePersonal, setExcludePersonal] = useState(false);
   const [sortAsc, setSortAsc] = useState(false);
   const [totalAll, setTotalAll] = useState(0);
@@ -47,7 +48,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
     setLoading(true);
     let q = supabase
       .from('expenses')
-      .select('*, cars(id,plate_number,brand,model)')
+      .select('*, cars(id,plate_number,brand,model), drivers(id,full_name)')
       .eq('category', tab);
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
@@ -59,6 +60,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
       // Расходы без авто (общехозяйственные) видны только при "Все автомобили"
       // и делятся между партнёрами.
       if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
+      if (driverFilter) rows = rows.filter((e) => e.driver_id === driverFilter);
       if (excludePersonal) {
         const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
         rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -66,22 +68,23 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
       setExpenses(rows);
     }
     setLoading(false);
-  }, [tab, dateFrom, dateTo, carFilter, excludePersonal, cars]);
+  }, [tab, dateFrom, dateTo, carFilter, driverFilter, excludePersonal, cars]);
 
   const loadTotalAll = useCallback(async () => {
-    let q = supabase.from('expenses').select('amount, personal, car_id');
+    let q = supabase.from('expenses').select('amount, personal, car_id, driver_id');
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
     const { data } = await q;
-    let rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+    let rows = (data as { amount: number; personal: boolean; car_id: string | null; driver_id: string | null }[]) || [];
     if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
+    if (driverFilter) rows = rows.filter((e) => e.driver_id === driverFilter);
     const all = rows.reduce((s, e) => s + Number(e.amount), 0);
     setTotalAll(all);
     const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
     const noPersonal = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)))
       .reduce((s, e) => s + Number(e.amount), 0);
     setTotalAllNoPersonal(noPersonal);
-  }, [dateFrom, dateTo, carFilter, cars]);
+  }, [dateFrom, dateTo, carFilter, driverFilter, cars]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadTotalAll(); }, [loadTotalAll]);
@@ -99,13 +102,14 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
 
   const handleExportExcel = async () => {
     const periodLabel = dateFrom || dateTo ? `${formatDate(dateFrom || '1970-01-01')}—${dateTo ? formatDate(dateTo) : 'по н.в.'}` : 'все';
-    let q = supabase.from('expenses').select('*, cars(id,plate_number,brand,model)');
+    let q = supabase.from('expenses').select('*, cars(id,plate_number,brand,model), drivers(id,full_name)');
     if (dateFrom) q = q.gte('date', dateFrom);
     if (dateTo) q = q.lte('date', dateTo);
     const { data, error } = await q;
     if (error) { notify('Ошибка выгрузки', 'error'); return; }
     let rows = (data as ExpenseWithCar[]) || [];
     if (carFilter) rows = rows.filter((e) => e.car_id === carFilter);
+    if (driverFilter) rows = rows.filter((e) => e.driver_id === driverFilter);
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
       rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -181,6 +185,13 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
             {cars.map((c) => <option key={c.id} value={c.id}>{c.plate_number}{c.personal ? ' (личный)' : ''}</option>)}
           </select>
         </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-primary-500">Водитель</label>
+          <select className="input-base py-1.5 px-2 text-xs" value={driverFilter} onChange={(e) => setDriverFilter(e.target.value)}>
+            <option value="">Все водители</option>
+            {drivers.map((d) => <option key={d.id} value={d.id}>{d.full_name}</option>)}
+          </select>
+        </div>
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input type="checkbox" checked={excludePersonal} onChange={(e) => setExcludePersonal(e.target.checked)} className="h-4 w-4 rounded border-primary-300 text-accent-600" />
           <span className="text-xs text-primary-500">Исключить личные</span>
@@ -199,8 +210,8 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
           <FileDown className="h-3.5 w-3.5" />
           Скачать Excel
         </button>
-        {(dateFrom || dateTo || carFilter || excludePersonal) && (
-          <button onClick={() => { setDateFrom(''); setDateTo(''); setCarFilter(''); setExcludePersonal(false); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
+        {(dateFrom || dateTo || carFilter || driverFilter || excludePersonal) && (
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setCarFilter(''); setDriverFilter(''); setExcludePersonal(false); }} className="text-xs text-primary-500 hover:text-primary-700 underline">
             Сбросить
           </button>
         )}
@@ -235,6 +246,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                 <tr className="border-b border-primary-100 bg-primary-50/50 text-left text-xs uppercase tracking-wide text-primary-500">
                   <th className="px-4 py-3 font-semibold">Дата</th>
                   {CATEGORY_CONFIG[tab].hasCar && <th className="px-4 py-3 font-semibold">Автомобиль</th>}
+                  <th className="px-4 py-3 font-semibold">Водитель</th>
                   {CATEGORY_CONFIG[tab].hasEmployee && <th className="px-4 py-3 font-semibold">Сотрудник</th>}
                   {CATEGORY_CONFIG[tab].hasDesc && <th className="px-4 py-3 font-semibold">Описание</th>}
                   {tab === 'taxes' && <th className="px-4 py-3 text-right font-semibold">Надо оплатить</th>}
@@ -254,6 +266,7 @@ export function ExpensesSection({ cars, drivers, notify }: ExpensesSectionProps)
                   <tr key={e.id} className="transition hover:bg-primary-50/40">
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-800">{formatDate(e.date)}</td>
                     {CATEGORY_CONFIG[tab].hasCar && <td className="px-4 py-3 text-primary-600">{e.cars?.plate_number || '—'}</td>}
+                    <td className="px-4 py-3 text-primary-600">{e.drivers?.full_name || '—'}</td>
                     {CATEGORY_CONFIG[tab].hasEmployee && <td className="px-4 py-3 text-primary-600">{e.employee_name || '—'}</td>}
                     {CATEGORY_CONFIG[tab].hasDesc && <td className="px-4 py-3 text-primary-600">{e.description || '—'}</td>}
                     {tab === 'taxes' && <td className="px-4 py-3 text-right font-semibold text-primary-800">{e.amount_to_pay ? formatRub(e.amount_to_pay) : '—'}</td>}
@@ -307,6 +320,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
   const today = toDateInput(new Date().toISOString());
   const [date, setDate] = useState(today);
   const [carId, setCarId] = useState('');
+  const [driverId, setDriverId] = useState('');
   const [amount, setAmount] = useState('');
   const [employeeName, setEmployeeName] = useState('');
   const [description, setDescription] = useState('');
@@ -344,6 +358,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
     const { error } = await supabase.from('expenses').insert({
       category,
       car_id: cfg.hasCar && carId ? carId : null,
+      driver_id: driverId || null,
       amount: amountNum,
       date,
       description: cfg.hasDesc && description.trim() ? description.trim() : null,
@@ -356,7 +371,7 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
     setSaving(false);
     if (error) { setErr(error.message); return; }
     notify('Расход добавлен');
-    setDate(today); setCarId(''); setAmount(''); setEmployeeName(''); setDescription('');
+    setDate(today); setCarId(''); setDriverId(''); setAmount(''); setEmployeeName(''); setDescription('');
     onSaved();
   };
 
@@ -371,6 +386,11 @@ function AddExpenseForm({ category, cars, drivers, onSaved, notify }: AddExpense
           {cfg.hasCar && (
             <Field label="Автомобиль">
               <Select value={carId} onChange={setCarId} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Выберите (необязательно)" />
+            </Field>
+          )}
+          {drivers.length > 0 && (
+            <Field label="Водитель">
+              <Select value={driverId} onChange={setDriverId} options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Выберите (необязательно)" />
             </Field>
           )}
           {cfg.hasEmployee && (
@@ -437,6 +457,7 @@ function EditExpenseForm({ expense, cars, drivers, category, onClose, onSaved, n
   const cfg = CATEGORY_CONFIG[category];
   const [date, setDate] = useState(toDateInput(expense.date));
   const [carId, setCarId] = useState(expense.car_id || '');
+  const [driverId, setDriverId] = useState(expense.driver_id || '');
   const [amount, setAmount] = useState(String(expense.amount));
   const [employeeName, setEmployeeName] = useState(expense.employee_name || '');
   const [description, setDescription] = useState(expense.description || '');
@@ -455,6 +476,7 @@ function EditExpenseForm({ expense, cars, drivers, category, onClose, onSaved, n
     const { error } = await supabase.from('expenses').update({
       date,
       car_id: cfg.hasCar && carId ? carId : null,
+      driver_id: driverId || null,
       amount: amountNum,
       description: cfg.hasDesc && description.trim() ? description.trim() : null,
       employee_name: cfg.hasEmployee && employeeName ? employeeName.trim() || null : null,
@@ -476,6 +498,11 @@ function EditExpenseForm({ expense, cars, drivers, category, onClose, onSaved, n
         {cfg.hasCar && (
           <Field label="Автомобиль">
             <Select value={carId} onChange={setCarId} options={cars.map((c) => ({ value: c.id, label: `${c.plate_number}${c.brand ? ' · ' + c.brand : ''}` }))} placeholder="Выберите (необязательно)" />
+          </Field>
+        )}
+        {drivers.length > 0 && (
+          <Field label="Водитель">
+            <Select value={driverId} onChange={setDriverId} options={drivers.map((d) => ({ value: d.id, label: d.full_name }))} placeholder="Выберите (необязательно)" />
           </Field>
         )}
         {cfg.hasEmployee && (

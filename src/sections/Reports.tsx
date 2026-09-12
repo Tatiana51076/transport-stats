@@ -102,6 +102,9 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     if (carFilter.length > 0) {
       filteredExpenses = filteredExpenses.filter((e) => e.car_id && carFilter.includes(e.car_id));
     }
+    if (driverFilter.length > 0) {
+      filteredExpenses = filteredExpenses.filter((e) => e.driver_id && driverFilter.includes(e.driver_id));
+    }
     if (excludePersonal) {
       const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
       filteredExpenses = filteredExpenses.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
@@ -142,6 +145,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       const { data: monthRows } = await mq;
       let filteredMonth = (monthRows as ExpenseWithCar[]) || [];
       if (carFilter.length > 0) filteredMonth = filteredMonth.filter((e) => e.car_id && carFilter.includes(e.car_id));
+      if (driverFilter.length > 0) filteredMonth = filteredMonth.filter((e) => e.driver_id && driverFilter.includes(e.driver_id));
       if (excludePersonal) {
         const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
         filteredMonth = filteredMonth.filter((e) => !e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id)));

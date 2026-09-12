@@ -60,6 +60,7 @@ export interface Expense {
   id: string;
   category: 'leasing' | 'fuel' | 'salary' | 'taxes' | 'other';
   car_id: string | null;
+  driver_id: string | null;
   amount: number;
   date: string;
   description: string | null;
@@ -73,6 +74,7 @@ export interface Expense {
 
 export interface ExpenseWithCar extends Expense {
   cars?: { id: string; plate_number: string; brand: string | null; model: string | null } | null;
+  drivers?: { id: string; full_name: string } | null;
 }
 
 export const EXPENSE_CATEGORIES: { key: Expense['category']; label: string; icon: string }[] = [
