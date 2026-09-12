@@ -229,6 +229,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
                   <th className="px-4 py-3 font-semibold">Водитель</th>
                   <th className="px-4 py-3 text-right font-semibold">Сумма</th>
                   <th className="px-4 py-3 text-right font-semibold">Оплачено</th>
+                  <th className="px-4 py-3 font-semibold">Дата оплаты</th>
                   <th className="px-4 py-3 text-right font-semibold">Остаток</th>
                   <th className="px-4 py-3 text-center font-semibold">Статус</th>
                   <th className="px-4 py-3"></th>
@@ -248,6 +249,7 @@ export function InvoicesSection({ contractors, cars, drivers, notify }: Invoices
                     <td className="px-4 py-3 text-primary-600">{inv.drivers?.full_name || '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-primary-800">{formatRub(inv.amount)}</td>
                     <td className="px-4 py-3 text-right font-semibold text-success-600">{formatRub(paidAmount)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-primary-600">{inv.payment_date ? formatDate(inv.payment_date) : '—'}</td>
                     <td className="px-4 py-3 text-right font-semibold text-error-600">{formatRub(remaining)}</td>
                     <td className="px-4 py-3 text-center">
                       <button
@@ -305,6 +307,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
   const [fullyPaid, setFullyPaid] = useState(false);
   const [partial, setPartial] = useState(false);
   const [paidAmount, setPaidAmount] = useState('');
+  const [paymentDate, setPaymentDate] = useState('');
   const [personal, setPersonal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -327,6 +330,7 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
       amount: amt,
       paid: fullyPaid,
       paid_amount: fullyPaid ? amt : paidVal,
+      payment_date: paymentDate || null,
       personal,
       date,
     });
@@ -387,6 +391,11 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
           </Field>
         )}
+        {(fullyPaid || partial) && (
+          <Field label="Дата оплаты">
+            <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+          </Field>
+        )}
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
@@ -410,6 +419,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
   const [partial, setPartial] = useState(!invoice.paid && Number(invoice.paid_amount) > 0 && Number(invoice.paid_amount) < Number(invoice.amount));
   const [fullyPaid, setFullyPaid] = useState(!!invoice.paid);
   const [paidAmount, setPaidAmount] = useState(String(invoice.paid_amount || 0));
+  const [paymentDate, setPaymentDate] = useState(toDateInput(invoice.payment_date));
   const [personal, setPersonal] = useState(!!invoice.personal);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -431,6 +441,7 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
       amount: amt,
       paid: fullyPaid,
       paid_amount: fullyPaid ? amt : paidVal,
+      payment_date: paymentDate || null,
       personal,
     }).eq('id', invoice.id);
     setSaving(false);
@@ -488,6 +499,11 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
         {partial && !fullyPaid && (
           <Field label="Оплачено по факту, ₽">
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
+          </Field>
+        )}
+        {(fullyPaid || partial) && (
+          <Field label="Дата оплаты">
+            <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
           </Field>
         )}
         {err && <p className="text-sm text-error-600">{err}</p>}

@@ -57,8 +57,6 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [sortAsc, setSortAsc] = useState(true);
-  const [extraExpenses, setExtraExpenses] = useState('');
-  const [prevMonthExpenses, setPrevMonthExpenses] = useState('');
   const [monthExpenses, setMonthExpenses] = useState<ExpenseWithCar[]>([]);
 
   const { from, to } = useMemo(() => {
@@ -133,50 +131,7 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     }
     setInvoices(filteredInvoices);
 
-    // Расходы за предыдущий месяц внутри периода (от from до конца месяца from)
-    if (from) {
-      const fromDate = new Date(from);
-      const isStartOfMonth = Number(from.slice(8, 10)) === 1;
-      const prevMonthEnd = new Date(fromDate.getFullYear(), fromDate.getMonth() + 1, 0);
-      const prevMonthEndStr = toDateStr(prevMonthEnd);
-      if (!isStartOfMonth && from <= prevMonthEndStr) {
-        const { data: prevRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', from).lte('date', prevMonthEndStr);
-        let prevList = (prevRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-        if (carFilter.length > 0) prevList = prevList.filter((e) => e.car_id && carFilter.includes(e.car_id));
-        const personalCarIdsAll = cars.filter((c) => c.personal).map((c) => c.id);
-        const prevSum = prevList
-          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll.includes(e.car_id))))
-          .reduce((s, e) => s + Number(e.amount), 0);
-        setPrevMonthExpenses(prevSum > 0 ? String(prevSum) : '');
-      } else {
-        setPrevMonthExpenses('');
-      }
-    }
-
-    // Доп расходы: от следующего дня после периода до конца месяца окончания
-    if (to) {
-      const endDate = new Date(to);
-      const isEndOfMonth = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0).getDate() === Number(to.slice(8, 10));
-      const nextDay = new Date(endDate);
-      nextDay.setDate(endDate.getDate() + 1);
-      const nextDayStr = toDateStr(nextDay);
-      const lastDay = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
-      const lastDayStr = toDateStr(lastDay);
-      if (!isEndOfMonth && nextDayStr <= lastDayStr) {
-        const { data: extraRows } = await supabase.from('expenses').select('amount, personal, car_id').gte('date', nextDayStr).lte('date', lastDayStr);
-        let extraList = (extraRows as { amount: number; personal: boolean; car_id: string | null }[]) || [];
-        if (carFilter.length > 0) extraList = extraList.filter((e) => e.car_id && carFilter.includes(e.car_id));
-        const personalCarIdsAll2 = cars.filter((c) => c.personal).map((c) => c.id);
-        const extraSum = extraList
-          .filter((e) => !excludePersonal || (!e.personal && (!e.car_id || !personalCarIdsAll2.includes(e.car_id))))
-          .reduce((s, e) => s + Number(e.amount), 0);
-        setExtraExpenses(extraSum > 0 ? String(extraSum) : '');
-      } else {
-        setExtraExpenses('');
-      }
-    }
-
-    // Детальные расходы за полный месяц окончания периода (например июль для 24.06–19.07)
+    // Детальные расходы за полный месяц окончания периода (для справки)
     if (to) {
       const endDate = new Date(to);
       const monthStart = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
@@ -222,15 +177,11 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     const invTotal = invoices.reduce((s, i) => s + Number(i.amount), 0);
     const invPaid = invoices.reduce((s, i) => s + Number(i.paid ? i.amount : (i.paid_amount || 0)), 0);
     const invUnpaid = invTotal - invPaid;
-    // Расходы для отчёта = расходы периода − расходы пред. месяца (по ним уже отчитались) + доп расходы.
-    // Прибыль считаем именно от итоговых расходов (adjustedExpenses), а не от сырых расходов периода.
-    const extraExp = parseFloat(extraExpenses) || 0;
-    const prevExp = parseFloat(prevMonthExpenses) || 0;
-    const adjustedExpenses = expTotal - prevExp + extraExp;
-    const profit = revenue - adjustedExpenses;
-    const realProfit = invPaid - adjustedExpenses;
-    const forecastProfit = invTotal - adjustedExpenses;
-    const distributableProfit = invPaid - adjustedExpenses;
+    
+    // Новая логика: доход и расход за один период (метод начисления)
+    // Прибыль = Выручка (рейсы) − Расходы
+    const profit = revenue - expTotal;
+    const distributableProfit = invPaid - expTotal;  // Доступно партнёрам = оплачено − расходы
     const partnerShare = distributableProfit / 2;
 
     const group = (getKey: (r: RecordWithRefs) => { id: string; label: string } | null) => {
@@ -253,15 +204,14 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     })).filter((c) => c.amount > 0);
 
     return {
-      revenue, trips, pallets, expTotal, profit, invTotal, invPaid, invUnpaid, realProfit, forecastProfit,
-      distributableProfit, partnerShare, adjustedExpenses,
-      prevMonthExpenses: prevExp, extraExpenses: extraExp,
+      revenue, trips, pallets, expTotal, profit, invTotal, invPaid, invUnpaid,
+      distributableProfit, partnerShare,
       byDriver: group((r) => (r.drivers ? { id: r.drivers.id, label: r.drivers.full_name } : null)),
       byCar: group((r) => (r.cars ? { id: r.cars.id, label: [r.cars.plate_number, r.cars.brand, r.cars.model].filter(Boolean).join(' ') } : null)),
       byContractor: group((r) => (r.contractors ? { id: r.contractors.id, label: r.contractors.name } : null)),
       expByCategory,
     };
-  }, [data, expenses, invoices, extraExpenses, prevMonthExpenses]);
+  }, [data, expenses, invoices]);
 
   const monthTotals = useMemo(() => {
     const total = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -365,9 +315,6 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       rows: [
         ['Получено оплат', String(Number(totals.invPaid).toFixed(2).replace('.', ','))],
         ['Расходы за период', String(Number(totals.expTotal).toFixed(2).replace('.', ','))],
-        ['Расходы предыдущего месяца', String(Number(totals.prevMonthExpenses || 0).toFixed(2).replace('.', ','))],
-        ['Доп. расходы (после периода)', String(Number(totals.extraExpenses || 0).toFixed(2).replace('.', ','))],
-        ['Итоговые расходы', String(Number(totals.adjustedExpenses).toFixed(2).replace('.', ','))],
         ['Доступно партнёрам', String(Number(totals.distributableProfit).toFixed(2).replace('.', ','))],
         ['Доля партнёра (50%)', String(Number(totals.partnerShare).toFixed(2).replace('.', ','))],
         ['Долги (не оплачено)', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
@@ -378,14 +325,12 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       title: 'Финансовый итог',
       headers: ['Показатель', 'Значение'],
       rows: [
-        ['Доходы (выручка)', String(Number(totals.revenue).toFixed(2).replace('.', ','))],
+        ['Доходы (выручка по рейсам)', String(Number(totals.revenue).toFixed(2).replace('.', ','))],
         ['Выставлено счетов', String(Number(totals.invTotal).toFixed(2).replace('.', ','))],
         ['Оплачено счетов', String(Number(totals.invPaid).toFixed(2).replace('.', ','))],
         ['Не оплачено счетов', String(Number(totals.invUnpaid).toFixed(2).replace('.', ','))],
         ['Расходы', String(Number(totals.expTotal).toFixed(2).replace('.', ','))],
-        ['Прибыль (доходы - итоговые расходы)', String(Number(totals.profit).toFixed(2).replace('.', ','))],
-        ['Реальная прибыль (оплачено - итоговые расходы)', String(Number(totals.realProfit).toFixed(2).replace('.', ','))],
-        ['Прогноз прибыли (все счета - итоговые расходы)', String(Number(totals.forecastProfit).toFixed(2).replace('.', ','))],
+        ['Прибыль (доходы - расходы)', String(Number(totals.profit).toFixed(2).replace('.', ','))],
       ],
     });
 
@@ -471,14 +416,13 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
     <div class="grid">
       <div class="card"><div class="lbl">Получено оплат</div><div class="val">${money(totals.invPaid)}</div></div>
       <div class="card"><div class="lbl">Расходы за период</div><div class="val">${money(totals.expTotal)}</div></div>
-      <div class="card"><div class="lbl">Итоговые расходы</div><div class="val">${money(totals.adjustedExpenses)}</div></div>
+      <div class="card"><div class="lbl">Доступно к распределению</div><div class="val">${money(totals.distributableProfit)}</div></div>
     </div>
 
     <div class="calc">
-      <div class="lbl">Расчёт итоговых расходов</div>
+      <div class="lbl">Расчёт</div>
       <div class="formula">
-        Расходы за период <b>${money(totals.expTotal)}</b> − расходы предыдущего месяца <b>${money(totals.prevMonthExpenses || 0)}</b>
-        + доп. расходы после периода <b>${money(totals.extraExpenses || 0)}</b> = <b>${money(totals.adjustedExpenses)}</b>
+        Оплачено <b>${money(totals.invPaid)}</b> − расходы <b>${money(totals.expTotal)}</b> = <b>${money(totals.distributableProfit)}</b>
       </div>
     </div>
 
@@ -710,8 +654,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
 
             <div className="grid gap-4 sm:grid-cols-3 mb-6">
               <StatCard label="Оплачено (по факту)" value={formatRub(totals.invPaid)} accent="text-success-600 bg-success-50" />
-              <StatCard label="Прибыль (оплачено − итоговые расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
-              <StatCard label="Прогноз (все счета − итоговые расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+              <StatCard label="Дебиторка (не оплачено)" value={formatRub(totals.invUnpaid)} accent="text-warning-600 bg-warning-50" />
+              <StatCard label="Прибыль (выручка − расходы)" value={formatRub(totals.profit)} accent={totals.profit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
             </div>
 
             <div className="mb-6 rounded-2xl border-2 border-accent-300 bg-accent-50 p-5">
@@ -726,42 +670,20 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <p className="text-lg font-bold text-primary-900">{formatRub(totals.expTotal)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-semibold uppercase text-accent-500">Расходы предыдущего месяца</p>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="input-base w-full"
-                    value={prevMonthExpenses}
-                    onChange={(e) => setPrevMonthExpenses(e.target.value)}
-                    placeholder="0"
-                  />
-                  <p className="mt-1 text-[11px] text-primary-400">Авто: расходы с {from || ''} до конца этого месяца</p>
+                  <p className="text-xs font-semibold uppercase text-accent-500">Касса к распределению (оплачено − расходы)</p>
+                  <p className="text-lg font-bold text-primary-900">{formatRub(totals.distributableProfit)}</p>
                 </div>
-              </div>
-              <div className="mb-4">
-                <p className="text-xs font-semibold uppercase text-accent-500">Доп. расходы (после периода)</p>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="input-base w-full"
-                  value={extraExpenses}
-                  onChange={(e) => setExtraExpenses(e.target.value)}
-                  placeholder="0"
-                />
-                <p className="mt-1 text-[11px] text-primary-400">Авто: расходы после периода до конца месяца</p>
               </div>
               <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
                 <p className="text-xs font-semibold uppercase text-primary-500">Расчёт</p>
                 <p className="mt-1 text-sm text-primary-700">
-                  {formatRub(totals.expTotal)} − {formatRub(totals.prevMonthExpenses || 0)} + {formatRub(totals.extraExpenses || 0)} ={' '}
-                  <span className="font-bold text-primary-900">{formatRub(totals.adjustedExpenses)}</span>
-                  <span className="text-[11px] text-primary-400"> (итоговые расходы)</span>
+                  {formatRub(totals.invPaid)} (оплачено) − {formatRub(totals.expTotal)} (расходы) ={' '}
+                  <span className="font-bold text-primary-900">{formatRub(totals.distributableProfit)}</span>
+                  <span className="text-[11px] text-primary-400"> (доступно партнёрам)</span>
                 </p>
               </div>
               <div className="mb-4 rounded-xl bg-white p-4 border border-accent-200">
-                <p className="text-xs font-semibold uppercase text-primary-500">Доступно партнёрам (честная цифра)</p>
+                <p className="text-xs font-semibold uppercase text-primary-500">Доступно партнёрам</p>
                 <p className={`text-xl font-bold ${totals.distributableProfit >= 0 ? 'text-success-700' : 'text-error-700'}`}>{formatRub(totals.distributableProfit)}</p>
                 <p className="mt-1 text-[11px] text-primary-400">
                   {totals.distributableProfit >= 0
@@ -792,8 +714,8 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
                   <StatCard label="Не оплачено" value={formatRub(totals.invUnpaid)} accent="text-error-600 bg-error-50" />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 mt-4">
-                  <StatCard label="Реальная прибыль (оплачено − итоговые расходы)" value={formatRub(totals.realProfit)} accent={totals.realProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
-                  <StatCard label="Прогноз прибыли (все счета − итоговые расходы)" value={formatRub(totals.forecastProfit)} accent={totals.forecastProfit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                  <StatCard label="Прибыль (выручка − расходы)" value={formatRub(totals.profit)} accent={totals.profit >= 0 ? 'text-success-600 bg-success-50' : 'text-error-600 bg-error-50'} />
+                  <StatCard label="Доступно партнёрам (50%)" value={formatRub(totals.partnerShare)} accent={totals.partnerShare >= 0 ? 'text-accent-700' : 'text-error-700'} />
                 </div>
               </div>
             )}

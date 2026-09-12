@@ -92,6 +92,7 @@ export interface Invoice {
   amount: number;
   paid: boolean;
   paid_amount: number;
+  payment_date: string | null;  // Дата оплаты (для кассового учёта)
   personal: boolean;
   date: string;
   created_at: string;
