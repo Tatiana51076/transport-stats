@@ -58,33 +58,50 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
     prev: { revenue: number; expenses: number; profit: number; label: string };
   } | null>(null);
 
-  useEffect(() => {
-    const loadCompare = async () => {
-      const now = new Date();
-      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const curStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const curEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      const [curRec, prevRec, curExp, prevExp] = await Promise.all([
-        supabase.from('records').select('cost').gte('date', fmt(curStart)).lte('date', fmt(curEnd)),
-        supabase.from('records').select('cost').gte('date', fmt(prevStart)).lte('date', fmt(prevEnd)),
-        supabase.from('expenses').select('amount').gte('date', fmt(curStart)).lte('date', fmt(curEnd)),
-        supabase.from('expenses').select('amount').gte('date', fmt(prevStart)).lte('date', fmt(prevEnd)),
-      ]);
-      const sum = (rows: unknown, key: string) => ((rows as Record<string, unknown>[]) || []).reduce((s, r) => s + Number(r[key] || 0), 0);
-      const curRevenue = sum(curRec.data, 'cost');
-      const curExpenses = sum(curExp.data, 'amount');
-      const prevRevenue = sum(prevRec.data, 'cost');
-      const prevExpenses = sum(prevExp.data, 'amount');
-      const monthLabel = (d: Date) => d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
-      setCompare({
-        cur: { revenue: curRevenue, expenses: curExpenses, profit: curRevenue - curExpenses, label: monthLabel(curStart) },
-        prev: { revenue: prevRevenue, expenses: prevExpenses, profit: prevRevenue - prevExpenses, label: monthLabel(prevStart) },
-      });
+  const loadCompare = useCallback(async () => {
+    const now = new Date();
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const curStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const curEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+    const personalCarIds = cars.filter((c) => c.personal).map((c) => c.id);
+
+    // Выручка (рейсы) с учётом фильтров авто/водителя/контрагента
+    const fetchRevenue = async (fromStr: string, toStr: string) => {
+      let q = supabase.from('records').select('cost, car_id').gte('date', fromStr).lte('date', toStr);
+      if (carFilter) q = q.eq('car_id', carFilter);
+      if (driverFilter) q = q.eq('driver_id', driverFilter);
+      if (contractorFilter) q = q.eq('contractor_id', contractorFilter);
+      const { data } = await q;
+      let rows = (data as { cost: number; car_id: string }[]) || [];
+      if (excludePersonal) rows = rows.filter((r) => !personalCarIds.includes(r.car_id));
+      return rows.reduce((s, r) => s + Number(r.cost), 0);
     };
-    loadCompare();
-  }, []);
+    // Расходы: фильтр по авто (у расходов нет водителя/контрагента)
+    const fetchExpenses = async (fromStr: string, toStr: string) => {
+      let q = supabase.from('expenses').select('amount, personal, car_id').gte('date', fromStr).lte('date', toStr);
+      if (carFilter) q = q.eq('car_id', carFilter);
+      const { data } = await q;
+      let rows = (data as { amount: number; personal: boolean; car_id: string | null }[]) || [];
+      if (excludePersonal) rows = rows.filter((e) => !e.personal && (!e.car_id || !personalCarIds.includes(e.car_id)));
+      return rows.reduce((s, e) => s + Number(e.amount), 0);
+    };
+
+    const [curRevenue, prevRevenue, curExpenses, prevExpenses] = await Promise.all([
+      fetchRevenue(fmt(curStart), fmt(curEnd)),
+      fetchRevenue(fmt(prevStart), fmt(prevEnd)),
+      fetchExpenses(fmt(curStart), fmt(curEnd)),
+      fetchExpenses(fmt(prevStart), fmt(prevEnd)),
+    ]);
+    const monthLabel = (d: Date) => d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+    setCompare({
+      cur: { revenue: curRevenue, expenses: curExpenses, profit: curRevenue - curExpenses, label: monthLabel(curStart) },
+      prev: { revenue: prevRevenue, expenses: prevExpenses, profit: prevRevenue - prevExpenses, label: monthLabel(prevStart) },
+    });
+  }, [carFilter, driverFilter, contractorFilter, excludePersonal, cars]);
+
+  useEffect(() => { loadCompare(); }, [loadCompare]);
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
