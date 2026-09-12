@@ -338,6 +338,23 @@ export function Reports({ cars, drivers, contractors, notify }: ReportsProps) {
       ],
     });
 
+    // Итоги по водителям / автомобилям / контрагентам (как в конце отчёта)
+    const groupTable = (title: string, rows: { label: string; count: number; sum: number }[]) => ({
+      title,
+      headers: ['Наименование', 'Рейсов', 'Сумма'],
+      rows: [
+        ...rows.map((r) => [r.label, String(r.count), String(Number(r.sum).toFixed(2).replace('.', ','))]),
+        [
+          'ИТОГО',
+          String(rows.reduce((s, r) => s + r.count, 0)),
+          String(Number(rows.reduce((s, r) => s + r.sum, 0)).toFixed(2).replace('.', ',')),
+        ],
+      ],
+    });
+    tables.push(groupTable('По водителям', totals.byDriver));
+    tables.push(groupTable('По автомобилям', totals.byCar));
+    tables.push(groupTable('По контрагентам', totals.byContractor));
+
     exportToExcel(`Отчёт_${periodStr}`, tables);
     notify('Отчёт скачан', 'success');
   };
