@@ -50,6 +50,38 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
   const [excludePersonal, setExcludePersonal] = useState(false);
   const [data, setData] = useState<RecordWithRefs[]>([]);
   const [loading, setLoading] = useState(true);
+  const [compare, setCompare] = useState<{
+    cur: { revenue: number; expenses: number; profit: number; label: string };
+    prev: { revenue: number; expenses: number; profit: number; label: string };
+  } | null>(null);
+
+  useEffect(() => {
+    const loadCompare = async () => {
+      const now = new Date();
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const curStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const curEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      const [curRec, prevRec, curExp, prevExp] = await Promise.all([
+        supabase.from('records').select('cost').gte('date', fmt(curStart)).lte('date', fmt(curEnd)),
+        supabase.from('records').select('cost').gte('date', fmt(prevStart)).lte('date', fmt(prevEnd)),
+        supabase.from('expenses').select('amount').gte('date', fmt(curStart)).lte('date', fmt(curEnd)),
+        supabase.from('expenses').select('amount').gte('date', fmt(prevStart)).lte('date', fmt(prevEnd)),
+      ]);
+      const sum = (rows: unknown, key: string) => ((rows as Record<string, unknown>[]) || []).reduce((s, r) => s + Number(r[key] || 0), 0);
+      const curRevenue = sum(curRec.data, 'cost');
+      const curExpenses = sum(curExp.data, 'amount');
+      const prevRevenue = sum(prevRec.data, 'cost');
+      const prevExpenses = sum(prevExp.data, 'amount');
+      const monthLabel = (d: Date) => d.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+      setCompare({
+        cur: { revenue: curRevenue, expenses: curExpenses, profit: curRevenue - curExpenses, label: monthLabel(curStart) },
+        prev: { revenue: prevRevenue, expenses: prevExpenses, profit: prevRevenue - prevExpenses, label: monthLabel(prevStart) },
+      });
+    };
+    loadCompare();
+  }, []);
 
   const { from, to } = useMemo(() => {
     if (period === 'custom') return { from: customFrom, to: customTo };
@@ -215,6 +247,35 @@ export function Dashboard({ cars = [], drivers = [], contractors = [] }: Dashboa
         <KpiCard icon={<DollarSign className="h-5 w-5" />} label="Затраты на паллету" value={formatRub(stats.costPerPallet)} accent="primary" />
         <KpiCard icon={<Target className="h-5 w-5" />} label="Средняя стоимость рейса" value={formatRub(stats.avgCost)} accent="accent" />
       </div>
+
+      {compare && (
+        <div className="card-base p-5">
+          <h3 className="mb-4 text-sm font-bold text-primary-900">Прибыль / убыток: текущий месяц vs прошлый</h3>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-xl bg-primary-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">{compare.prev.label}</p>
+              <p className={`mt-1 text-xl font-bold ${compare.prev.profit >= 0 ? 'text-success-600' : 'text-error-600'}`}>{formatRub(compare.prev.profit)}</p>
+              <p className="mt-1 text-[11px] text-primary-400">Выручка {formatRub(compare.prev.revenue)} · Расходы {formatRub(compare.prev.expenses)}</p>
+            </div>
+            <div className="rounded-xl bg-accent-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent-500">{compare.cur.label}</p>
+              <p className={`mt-1 text-xl font-bold ${compare.cur.profit >= 0 ? 'text-success-600' : 'text-error-600'}`}>{formatRub(compare.cur.profit)}</p>
+              <p className="mt-1 text-[11px] text-primary-400">Выручка {formatRub(compare.cur.revenue)} · Расходы {formatRub(compare.cur.expenses)}</p>
+            </div>
+            <div className={`rounded-xl p-4 ${compare.cur.profit - compare.prev.profit >= 0 ? 'bg-success-50' : 'bg-error-50'}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">Изменение</p>
+              <p className={`mt-1 text-xl font-bold ${compare.cur.profit - compare.prev.profit >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                {compare.cur.profit - compare.prev.profit >= 0 ? '+' : ''}{formatRub(compare.cur.profit - compare.prev.profit)}
+              </p>
+              <p className="mt-1 text-[11px] text-primary-400">
+                {compare.prev.profit !== 0
+                  ? `${((compare.cur.profit - compare.prev.profit) / Math.abs(compare.prev.profit) * 100).toFixed(1)}% к прошлому месяцу`
+                  : 'прошлый месяц без прибыли'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stats.totalTrips === 0 ? (
         <div className="card-base p-8 text-center">

@@ -391,11 +391,9 @@ function AddInvoiceForm({ contractors, cars, drivers, onClose, onSaved, notify }
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
           </Field>
         )}
-        {(fullyPaid || partial) && (
-          <Field label="Дата оплаты">
-            <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-          </Field>
-        )}
+        <Field label="Дата оплаты">
+          <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+        </Field>
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
@@ -501,11 +499,9 @@ function EditInvoiceForm({ invoice, contractors, cars, drivers, onClose, onSaved
             <input type="number" min="0" step="0.01" className="input-base" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="30000" />
           </Field>
         )}
-        {(fullyPaid || partial) && (
-          <Field label="Дата оплаты">
-            <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
-          </Field>
-        )}
+        <Field label="Дата оплаты">
+          <input type="date" className="input-base" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
+        </Field>
         {err && <p className="text-sm text-error-600">{err}</p>}
         <FormActions onCancel={onClose} saving={saving} submitLabel="Сохранить" />
       </form>
